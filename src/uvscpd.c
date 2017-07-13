@@ -9,6 +9,8 @@
 #include <unistd.h>
 #include <stdlib.h>
 
+#include "controller.h"
+
 void uvscpd_show_version(void);
 void uvscpd_show_help(void);
 
@@ -121,21 +123,8 @@ int main(int argc, char *argv[])
   dup2(0, 1);
   dup2(0, 2);
 
-  while (1)
-  {
-    if (gsighup_received)
-    {
-      exit(0);
-    }
-    if (gsigterm_received)
-    {
-      exit(0);
-    }
-    if (gsigint_received)
-    {
-      exit(0);
-    }
-  }
+  controller(config_file);
+
 }
 
 ///////////////////////////////////////////////////////////////////////////////
