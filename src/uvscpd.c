@@ -77,9 +77,9 @@ int main(int argc, char *argv[])
     }
   }
 
-  if (access (config_file, F_OK) == -1)
+  if (access (config_file, R_OK) == -1)
   {
-    fprintf(stderr, "Config file '%s' not accessible.\n", config_file);
+    fprintf(stderr, "Config file '%s' not readable.\n", config_file);
   }
 
   memset(&sa, 0, sizeof(sa));
