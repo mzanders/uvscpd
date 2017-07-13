@@ -130,7 +130,7 @@ void tcpserver_work(int connfd)
 
   char * WelcomeMsg = "Welcome to this test server...\n";
 
-  writen(connfd, WelcomeMsg, sizeof(WelcomeMsg));
+  writen(connfd, WelcomeMsg, strlen(WelcomeMsg));
 
   again:
   while ( (n = read(connfd, buf, 120)) > 0)
