@@ -8,6 +8,8 @@
 #include <netinet/in.h>
 #include <unistd.h>
 #include <errno.h>
+#include <semaphore.h>
+#include <stdio.h>
 
 #include "tcpserver.h"
 #include "syserror.h"
@@ -18,9 +20,13 @@
 static const char * ModuleName = "TCPServer";
 static int tcpserver_running = 0;
 
+pthread_t dispatch_tid;
+
 typedef struct {
   pthread_t thread_tid;
-  long thread_count;
+  sem_t start_sem;
+  int connfd;
+  pthread_mutex_t connfd_lock;
 } Thread;
 
 Thread *tptr;
@@ -31,8 +37,10 @@ int listenfd, nthreads;
 socklen_t addrlen;
 pthread_mutex_t mlock;
 
-void * tcpserver_thread(void *arg);
+void * dispatch_thread(void *arg);
+void * worker_thread(void *arg);
 void tcpserver_work(int connfd);
+ssize_t writen(int fd, const void *vptr, size_t n);
 
 void tcpserver_start (const char * Configuration)
 {
@@ -64,41 +72,67 @@ void tcpserver_start (const char * Configuration)
   if (tptr == NULL)
     SysMError("thread calloc");
 
+  /* create worker threads first, they will block on the semaphore */
   for (i = 0; i < nthreads; i++)
   {
-     if(pthread_create(&tptr[i].thread_tid, NULL, &tcpserver_thread, NULL) != 0)
-       NonSysError(ModuleName, "pthread_create");
+     sem_init(&(tptr[i].start_sem), 0, 0);
+     if(pthread_create(&tptr[i].thread_tid, NULL, &worker_thread, &(tptr[i])) != 0)
+       NonSysError(ModuleName, "pthread_create worker");
   }
+
+  /* create the dispatcher thread */
+  if(pthread_create(&dispatch_tid, NULL, &dispatch_thread, NULL) != 0)
+    NonSysError(ModuleName, "pthread_create dispatch");
 
   tcpserver_running = 1;
   return;
 }
 
-void * tcpserver_thread(void *arg)
+void * dispatch_thread(void *arg)
 {
   int connfd;
   struct sockaddr_in cliaddr;
   socklen_t clilen;
+  int found, i;
+  const char * strNoneAvailable = "Maximum number of connections reached.\n";
 
-   while(1)
-   {
-     clilen = sizeof(cliaddr);
-     if(pthread_mutex_lock(&mlock) != 0)
-       NonSysError(ModuleName, "thread mutex lock");
+  while(1)
+  {
+    clilen = sizeof(cliaddr);
 
-     if((connfd = accept(listenfd, (struct sockaddr*)&cliaddr, &clilen)) < 0 )
-       SysMError("thread accept");
+    if((connfd = accept(listenfd, (struct sockaddr*)&cliaddr, &clilen)) < 0 )
+      SysMError("thread accept");
 
-     if(pthread_mutex_unlock(&mlock) != 0)
-       NonSysError(ModuleName, "thread mutex unlock");
+    found = 0;
+    i = 0;
+    while ((found == 0) && (i < nthreads))
+    {
+      if(pthread_mutex_lock(&(tptr[i].connfd_lock)) != 0)
+        NonSysError("TCPServer", "dispatch mutex lock");
 
-     tcpserver_work(connfd);
+      if(tptr[i].connfd == 0)
+      {
+        found = 1;
+        tptr[i].connfd = connfd;
+        sem_post(&(tptr[i].start_sem));
+      }
 
-     if(close(connfd) < 0)
-       SysMError("thread close FD");
+      if(pthread_mutex_unlock(&(tptr[i].connfd_lock)) != 0)
+        NonSysError("TCPServer", "dispatch mutex unlock");
 
-   }
+      i++;
+    }
+
+    if(found == 0)
+    {
+      writen(connfd, strNoneAvailable, strlen(strNoneAvailable));
+      if(close(connfd) < 0)
+        SysMError("thread close connection");
+    }
+  }
 }
+
+
 
 /* Write "n" bytes to a descriptor. */
 ssize_t writen(int fd, const void *vptr, size_t n)
@@ -123,12 +157,58 @@ ssize_t writen(int fd, const void *vptr, size_t n)
   return (n);
 }
 
+void * worker_thread(void *arg)
+{
+  Thread * info = arg;
+  char Msg[64];
+  int connection;
+  int status;
+
+   while(1)
+   {
+     if((status = sem_wait(&(info->start_sem))) != 0)
+     {
+        if(status != EINTR)
+          SysMError("worker semaphore wait");
+     }
+     else
+     {
+       if(pthread_mutex_lock(&(info->connfd_lock)) != 0)
+         NonSysError("TCPServer", "worker mutex Lock");
+
+       connection = info->connfd;
+
+       if(pthread_mutex_unlock(&(info->connfd_lock)) != 0)
+           NonSysError("TCPServer", "worker mutex unlock");
+
+       if (connection != 0)
+       {
+         sprintf(Msg, "tid: %lu\n\r", info->thread_tid);
+         writen(connection, Msg, strlen(Msg));
+
+         tcpserver_work(connection);
+
+         if(close(connection) < 0)
+           SysMError("thread close FD");
+
+         if(pthread_mutex_lock(&(info->connfd_lock)) != 0)
+           NonSysError("TCPServer", "worker mutex Lock");
+
+         info->connfd = 0;
+
+         if(pthread_mutex_unlock(&(info->connfd_lock)) != 0)
+             NonSysError("TCPServer", "worker mutex unlock");
+       }
+     }
+   }
+}
+
 void tcpserver_work(int connfd)
 {
   ssize_t n;
   char buf[120];
 
-  char * WelcomeMsg = "Welcome to this test server...\n";
+  char * WelcomeMsg = "Welcome to this test server...\n\r";
 
   writen(connfd, WelcomeMsg, strlen(WelcomeMsg));
 
@@ -146,9 +226,48 @@ void tcpserver_work(int connfd)
 
 void tcpserver_stop (void)
 {
+  int i;
+  void* res;
 
-   free(tptr);
-   close(listenfd);
-   return;
+  /* stop the dispatcher first */
+  if(pthread_cancel(dispatch_tid) < 0)
+    NonSysError(ModuleName, "pthread_cancel");
+  if(pthread_join(dispatch_tid, &res) < 0)
+      NonSysError(ModuleName, "pthread_cancel");
+  free(res);
+  if(close(listenfd) < 0)
+    SysMError("Close listener");
+
+  /* stop all the workers */
+  for (i = 0; i < nthreads; i++)
+  {
+     if(pthread_cancel(tptr[i].thread_tid) < 0)
+       NonSysError(ModuleName, "pthread_cancel");
+  }
+
+  for (i = 0; i < nthreads; i++)
+  {
+    if(pthread_join(tptr[i].thread_tid, &res) < 0)
+      NonSysError(ModuleName, "pthread_cancel");
+    free(res);
+
+    if(pthread_mutex_lock(&(tptr[i].connfd_lock)) != 0)
+      NonSysError("TCPServer", "close mutex Lock");
+    if(tptr[i].connfd != 0)
+    {
+      if(close(tptr[i].connfd) < 0)
+        SysMError("Close cleanup");
+      tptr[i].connfd = 0;
+    }
+    if(pthread_mutex_lock(&(tptr[i].connfd_lock)) != 0)
+      NonSysError("TCPServer", "close mutex Lock");
+
+    if(sem_destroy(&(tptr[i].start_sem)) < 0)
+      SysMError("close sem destroy");
+  }
+
+  free(tptr);
+
+  return;
 
 }

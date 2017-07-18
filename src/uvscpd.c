@@ -115,6 +115,8 @@ int main(int argc, char *argv[])
   close(STDOUT_FILENO);
   close(STDERR_FILENO);
 
+  syslog(LOG_INFO, "uvscpd started");
+
   if (open("/", 0))
   {
     syslog(LOG_CRIT, "uvscpd: open / not 0: %m");
