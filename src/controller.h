@@ -3,6 +3,6 @@
 
 
   /* The main controller */
-  void controller (const char * Config_File);
+  void controller ();
 
 #endif /* #ifndef _CONTROLLER_H_ */

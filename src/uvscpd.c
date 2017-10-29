@@ -44,13 +44,11 @@ int main(int argc, char *argv[])
   int next_option = 0;
   int longindex;
   pid_t pid, sid;
-  char * config_file = "/etc/uvscpd/uvscpd.cfg";
 
-  const char *const short_options = "hvc:s";
+  const char *const short_options = "hvs";
   const struct option long_options[] = {// name, has_arg, flag, val
                                         {"help", 0, NULL, 'h'},
                                         {"version", 0, NULL, 'v'},
-                                        {"config",required_argument, NULL, 'c'},
                                         {"stay", 0, &gDaemonize, 0},
                                         {NULL, 0, NULL, 0}};
   struct sigaction sa;
@@ -73,20 +71,11 @@ int main(int argc, char *argv[])
         exit(0);
         break;
 
-      case 'c':
-        config_file = optarg;
-        break;
-
       case '?':
       default:
         uvscpd_show_help();
         exit(-1);
     }
-  }
-
-  if (access (config_file, R_OK) == -1)
-  {
-    fprintf(stderr, "Config file '%s' not readable.\n", config_file);
   }
 
   memset(&sa, 0, sizeof(sa));
@@ -133,7 +122,7 @@ int main(int argc, char *argv[])
     dup2(0, 2);
   }
 
-  controller(config_file);
+  controller();
 
 }
 

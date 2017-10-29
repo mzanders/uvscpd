@@ -13,7 +13,7 @@ extern sig_atomic_t gsighup_received;
 extern sig_atomic_t gsigint_received;
 
 
-void controller (const char * Config_File)
+void controller ()
 {
   openlog("uvscpd : ", LOG_PID, LOG_USER);
 
