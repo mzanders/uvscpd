@@ -17,7 +17,7 @@ void controller ()
 {
   openlog("uvscpd : ", LOG_PID, LOG_USER);
 
-  tcpserver_start(NULL);
+  tcpserver_start();
 
   while (1)
   {

@@ -3,7 +3,7 @@
 
 
   /* start a TCP server */
-  void tcpserver_start (const char * Config_File);
+  void tcpserver_start (void);
   void tcpserver_stop (void);
 
 

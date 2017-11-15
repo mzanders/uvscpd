@@ -3,15 +3,16 @@
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <assert.h>
-#include <string.h>
 #include <pthread.h>
 #include <netinet/in.h>
 #include <unistd.h>
-#include <errno.h>
+#include <string.h>
 #include <semaphore.h>
 #include <stdio.h>
+#include <errno.h>
 
 #include "tcpserver.h"
+#include "tcpserver_worker.h"
 #include "syserror.h"
 
 #define NUM_CONNECTIONS 5
@@ -40,9 +41,8 @@ pthread_mutex_t mlock;
 void * dispatch_thread(void *arg);
 void * worker_thread(void *arg);
 void tcpserver_work(int connfd);
-ssize_t writen(int fd, const void *vptr, size_t n);
 
-void tcpserver_start (const char * Configuration)
+void tcpserver_start (void)
 {
   int i;
   struct sockaddr_in servaddr;
@@ -94,7 +94,6 @@ void * dispatch_thread(void *arg)
   struct sockaddr_in cliaddr;
   socklen_t clilen;
   int found, i;
-  const char * strNoneAvailable = "Maximum number of connections reached.\n";
 
   while(1)
   {
@@ -125,42 +124,16 @@ void * dispatch_thread(void *arg)
 
     if(found == 0)
     {
-      writen(connfd, strNoneAvailable, strlen(strNoneAvailable));
       if(close(connfd) < 0)
         SysMError("thread close connection");
     }
   }
 }
 
-
-
-/* Write "n" bytes to a descriptor. */
-ssize_t writen(int fd, const void *vptr, size_t n)
-{
-  size_t nleft;
-  ssize_t nwritten;
-  const char *ptr;
-  ptr = vptr;
-  nleft = n;
-  while (nleft > 0)
-  {
-    if ( (nwritten = write(fd, ptr, nleft)) <= 0)
-    {
-      if (nwritten < 0 && errno == EINTR)
-        nwritten = 0;   /* and call write() again */
-      else
-        return (-1);    /* error */
-    }
-    nleft -= nwritten;
-    ptr += nwritten;
-  }
-  return (n);
-}
-
 void * worker_thread(void *arg)
 {
   Thread * info = arg;
-  char Msg[64];
+  void * work_context;
   int connection;
   int status;
 
@@ -183,9 +156,6 @@ void * worker_thread(void *arg)
 
        if (connection != 0)
        {
-         sprintf(Msg, "tid: %lu\n\r", info->thread_tid);
-         writen(connection, Msg, strlen(Msg));
-
          tcpserver_work(connection);
 
          if(close(connection) < 0)
@@ -202,27 +172,6 @@ void * worker_thread(void *arg)
      }
    }
 }
-
-void tcpserver_work(int connfd)
-{
-  ssize_t n;
-  char buf[120];
-
-  char * WelcomeMsg = "Welcome to this test server...\n\r";
-
-  writen(connfd, WelcomeMsg, strlen(WelcomeMsg));
-
-  again:
-  while ( (n = read(connfd, buf, 120)) > 0)
-  {
-    writen(connfd, buf, n);
-  }
-  if (n < 0 && errno == EINTR)
-    goto again;
-  else if (n < 0)
-    SysMError("thread read");
-}
-
 
 void tcpserver_stop (void)
 {
@@ -248,19 +197,15 @@ void tcpserver_stop (void)
   for (i = 0; i < nthreads; i++)
   {
     if(pthread_join(tptr[i].thread_tid, &res) < 0)
-      NonSysError(ModuleName, "pthread_cancel");
+      NonSysError(ModuleName, "pthread_join");
     free(res);
 
-    if(pthread_mutex_lock(&(tptr[i].connfd_lock)) != 0)
-      NonSysError("TCPServer", "close mutex Lock");
     if(tptr[i].connfd != 0)
     {
       if(close(tptr[i].connfd) < 0)
         SysMError("Close cleanup");
       tptr[i].connfd = 0;
     }
-    if(pthread_mutex_lock(&(tptr[i].connfd_lock)) != 0)
-      NonSysError("TCPServer", "close mutex Lock");
 
     if(sem_destroy(&(tptr[i].start_sem)) < 0)
       SysMError("close sem destroy");
@@ -269,5 +214,6 @@ void tcpserver_stop (void)
   free(tptr);
 
   return;
-
 }
+
+
