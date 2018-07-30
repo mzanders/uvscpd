@@ -60,7 +60,7 @@ int main(int argc, char *argv[])
     {
       case 0:
         break;
-        
+
       case 'h':
         uvscpd_show_help();
         exit(0);
@@ -121,7 +121,6 @@ int main(int argc, char *argv[])
     dup2(0, 1);
     dup2(0, 2);
   }
-
   controller();
 
 }
