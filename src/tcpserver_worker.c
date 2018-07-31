@@ -197,20 +197,34 @@ void tcpserver_handle_input(context_t* context, char* buffer, ssize_t length) {
   do {
     rval = cmd_interpreter_process(context->cmd_interpreter, &saveptr,
                                    (length - (saveptr - buffer)), &argc, &argv);
-                                   int i;
-
     if (rval > 0) {
-      printf("Command: %d, argc: %u\n", rval, argc);
-      for(i=0; i<argc; i++)
+      switch(rval)
       {
-        printf("  [%u] - %s\n", i, argv[i]);
-     }
+        case 1:
+        case 3:
+          printf("noop\n");
+          handle_noop(context);
+          break;
+        case 2:
+          printf("quit\n");
+          handle_quit(context);
+          break;
+        default:
+          status_reply(context->tcpfd, 1, "don't know what you're saying");
 
+      }
     } else if (rval < 0)
       printf("Error: %d\n",rval);
   } while (rval != 0);
 }
 
-void handle_noop(context_t* context) {}
+void handle_noop(context_t* context)
+{
+  status_reply(context->tcpfd, 0, NULL);
+}
 
-void handle_quit(context_t* context) {}
+void handle_quit(context_t* context)
+{
+  status_reply(context->tcpfd, 0, NULL);
+  context->stop_thread = 1;
+}
