@@ -47,7 +47,7 @@ typedef struct {
 } command_descr_t;
 
 const cmd_interpreter_cmd_list_t command_descr[] = {
-    {1, "noop", 0}, {2, "quit", 0}, {3, "test", 2}};
+    {1, "noop"}, {2, "quit"}, {3, "test"}};
 
 static const int num_commands =
     (sizeof(command_descr) / sizeof(cmd_interpreter_cmd_list_t));
@@ -65,13 +65,15 @@ void tcpserver_work(int connfd) {
   struct ifreq ifr;
   struct can_frame;
   struct pollfd poll_fd[2];
+  const int max_argc = 10;
+  const int max_line_length = 128;
 
   context.tcpfd = connfd;
   context.mode = normal;
   context.can_socket = socket(PF_CAN, SOCK_RAW, CAN_RAW);
   context.command_buffer_wp = 0;
   context.cmd_interpreter =
-      cmd_interpreter_ctx_create(command_descr, num_commands, 0, 128, " ");
+      cmd_interpreter_ctx_create(command_descr, num_commands, max_argc, 0, max_line_length, " ");
   pthread_cleanup_push(tcpserver_work_cleanup, context.cmd_interpreter);
 
   strcpy(ifr.ifr_name, "can0");
@@ -191,15 +193,21 @@ void tcpserver_handle_input(context_t* context, char* buffer, ssize_t length) {
   int argc;
   char** argv;
   int rval;
-  printf("I'm here!");
 
   do {
     rval = cmd_interpreter_process(context->cmd_interpreter, &saveptr,
                                    (length - (saveptr - buffer)), &argc, &argv);
+                                   int i;
+
     if (rval > 0) {
-      writen(context->tcpfd, "I got a command\n", 16);
+      printf("Command: %d, argc: %u\n", rval, argc);
+      for(i=0; i<argc; i++)
+      {
+        printf("  [%u] - %s\n", i, argv[i]);
+     }
+
     } else if (rval < 0)
-      writen(context->tcpfd, "ERRORRRRRRRRRRR\n", 16);
+      printf("Error: %d\n",rval);
   } while (rval != 0);
 }
 
