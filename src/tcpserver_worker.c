@@ -15,52 +15,35 @@
 
 #include "cmd_interpreter.h"
 #include "syserror.h"
+#include "tcpserver_commands.h"
+#include "tcpserver_context.h"
 #include "tcpserver_worker.h"
 
-static const char* ModuleName = "TCPServerWorker";
-
-typedef enum { normal, loop } servermode_t;
-
-typedef struct {
-  int tcpfd;
-  servermode_t mode;
-  int can_socket;
-  char command_buffer[120];
-  int command_buffer_wp;
-  int stop_thread;
-  cmd_interpreter_ctx_t* cmd_interpreter;
-} context_t;
+static const char *ModuleName = "TCPServerWorker";
 
 /* helper functions */
-ssize_t writen(int fd, const void* vptr, size_t n);
-void handle_noop(context_t* context);
-void handle_quit(context_t* context);
-void tcpserver_work_cleanup(void* context);
-int status_reply(int fd, int error, char* msg);
-int print_vscp_frame(context_t* context, struct can_frame frame);
+ssize_t writen(int fd, const void *vptr, size_t n);
+void handle_noop(context_t *context);
+void handle_quit(context_t *context);
+void tcpserver_work_cleanup(void *context);
+int status_reply(int fd, int error, char *msg);
+int print_vscp_frame(context_t *context, struct can_frame frame);
 int nbytes;
 
 typedef struct {
-  char* command;
-  char* long_command;
-  void (*cmd_handler)(context_t* context);
+  char *command;
+  char *long_command;
+  void (*cmd_handler)(context_t *context);
 } command_descr_t;
 
-const cmd_interpreter_cmd_list_t command_descr[] = {
-    {1, "noop"}, {2, "quit"}, {3, "test"}};
-
-static const int num_commands =
-    (sizeof(command_descr) / sizeof(cmd_interpreter_cmd_list_t));
-
-void tcpserver_handle_input(context_t* context, char* buffer, ssize_t length);
+void tcpserver_handle_input(context_t *context, char *buffer, ssize_t length);
 
 void tcpserver_work(int connfd) {
   ssize_t n;
   char buf[120];
   context_t context;
-  char* welcome_message =
-      "uvscpd V?\n\rCopyright (c) 2018, Maarten Zanders "
-      "<maarten.zanders@gmail.com>\n\r";
+  char *welcome_message = "uvscpd V?\n\rCopyright (c) 2018, Maarten Zanders "
+                          "<maarten.zanders@gmail.com>\n\r";
   struct sockaddr_can addr;
   struct ifreq ifr;
   struct can_frame;
@@ -72,8 +55,8 @@ void tcpserver_work(int connfd) {
   context.mode = normal;
   context.can_socket = socket(PF_CAN, SOCK_RAW, CAN_RAW);
   context.command_buffer_wp = 0;
-  context.cmd_interpreter =
-      cmd_interpreter_ctx_create(command_descr, num_commands, max_argc, 0, max_line_length, " ");
+  context.cmd_interpreter = cmd_interpreter_ctx_create(
+      command_descr, command_descr_num, max_argc, 0, max_line_length, " ");
   pthread_cleanup_push(tcpserver_work_cleanup, context.cmd_interpreter);
 
   strcpy(ifr.ifr_name, "can0");
@@ -81,7 +64,7 @@ void tcpserver_work(int connfd) {
   addr.can_family = AF_CAN;
   addr.can_ifindex = ifr.ifr_ifindex;
 
-  bind(context.can_socket, (struct sockaddr*)&addr, sizeof(addr));
+  bind(context.can_socket, (struct sockaddr *)&addr, sizeof(addr));
 
   writen(context.tcpfd, welcome_message, strlen(welcome_message));
   status_reply(context.tcpfd, 0, "Success.");
@@ -97,21 +80,21 @@ void tcpserver_work(int connfd) {
   context.stop_thread = 0;
   while (!context.stop_thread) {
     switch (context.mode) {
-      case normal:
-        n = read(context.tcpfd, buf, sizeof(buf));
+    case normal:
+      n = read(context.tcpfd, buf, sizeof(buf));
 
-        if (n < 0 && errno != EINTR) {
-          context.stop_thread = 1;
-        } else {
-          if (errno != EINTR)
-            tcpserver_handle_input(&context, buf, n);
-        }
+      if (n < 0 && errno != EINTR) {
+        context.stop_thread = 1;
+      } else {
+        if (errno != EINTR)
+          tcpserver_handle_input(&context, buf, n);
+      }
 
-        break;
+      break;
 
-      case loop:
-        // similar as above but add poll and CAN reception
-        break;
+    case loop:
+      // similar as above but add poll and CAN reception
+      break;
     }
   }
 
@@ -131,15 +114,13 @@ void tcpserver_work(int connfd) {
   pthread_cleanup_pop(1);
 }
 
-void tcpserver_work_cleanup(void* context) {
-  cmd_interpreter_free(context);
-}
+void tcpserver_work_cleanup(void *context) { cmd_interpreter_free(context); }
 
 /* Write "n" bytes to a descriptor. */
-ssize_t writen(int fd, const void* vptr, size_t n) {
+ssize_t writen(int fd, const void *vptr, size_t n) {
   size_t nleft;
   ssize_t nwritten;
-  const char* ptr;
+  const char *ptr;
   ptr = vptr;
   nleft = n;
   while (nleft > 0) {
@@ -155,7 +136,7 @@ ssize_t writen(int fd, const void* vptr, size_t n) {
   return (n);
 }
 
-int status_reply(int fd, int error, char* msg) {
+int status_reply(int fd, int error, char *msg) {
   char buffer[120];
   buffer[0] = 0;
 
@@ -175,7 +156,7 @@ int status_reply(int fd, int error, char* msg) {
   return writen(fd, buffer, strlen(buffer));
 }
 
-int print_vscp_frame(context_t* context, struct can_frame frame) {
+int print_vscp_frame(context_t *context, struct can_frame frame) {
   char buffer[120];
   char minibuf[10];
 
@@ -188,43 +169,39 @@ int print_vscp_frame(context_t* context, struct can_frame frame) {
   return writen(context->tcpfd, buffer, strlen(buffer));
 }
 
-void tcpserver_handle_input(context_t* context, char* buffer, ssize_t length) {
-  char* saveptr = buffer;
-  int argc;
-  char** argv;
-  int rval;
+void tcpserver_handle_input(context_t *context, char *buffer, ssize_t length) {
+  char *saveptr = buffer;
+  int rval = 1;
 
   do {
     rval = cmd_interpreter_process(context->cmd_interpreter, &saveptr,
-                                   (length - (saveptr - buffer)), &argc, &argv);
-    if (rval > 0) {
-      switch(rval)
-      {
-        case 1:
-        case 3:
-          printf("noop\n");
-          handle_noop(context);
-          break;
-        case 2:
-          printf("quit\n");
-          handle_quit(context);
-          break;
-        default:
-          status_reply(context->tcpfd, 1, "don't know what you're saying");
+                                   (length - (saveptr - buffer)), context);
+    if (rval > 0)
+      status_reply(context->tcpfd, 0, NULL);
+    if (rval < 0) {
+      switch (rval) {
+      case CMD_INTERPRETER_LINE_LENGTH_EXCEEDED:
+        status_reply(context->tcpfd, 1, "line length exceeded");
+        break;
 
+      case CMD_INTERPRETER_EMPTY_INPUT:
+        status_reply(context->tcpfd, 1, "no input");
+        break;
+      case CMD_INTERPRETER_INVALID_COMMAND:
+        status_reply(context->tcpfd, 1, "invalid command");
+        break;
+      case CMD_INTERPRETER_CALLBACK_RETURNED_ERROR:
+        status_reply(context->tcpfd, 1, "error in command");
+        break;
       }
-    } else if (rval < 0)
-      printf("Error: %d\n",rval);
+    }
+
   } while (rval != 0);
 }
 
-void handle_noop(context_t* context)
-{
-  status_reply(context->tcpfd, 0, NULL);
-}
+void handle_noop(context_t *context) {}
 
-void handle_quit(context_t* context)
-{
+void handle_quit(context_t *context) {
   status_reply(context->tcpfd, 0, NULL);
   context->stop_thread = 1;
 }
