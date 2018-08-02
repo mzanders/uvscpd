@@ -11,7 +11,7 @@ typedef struct {
 
 typedef struct cmd_interpreter_ctx {
   char *linebuffer;
-  char *linebuffer_backup;
+  char *linebuffer_work;
   char *linebuffer_history;
   int to_lower;
   int num_commands;
@@ -51,7 +51,7 @@ cmd_interpreter_ctx_create(const cmd_interpreter_cmd_list_t *cmd_list,
   ctx->cmd_list = cmd_list;
   ctx->linebuffer = my_calloc(1, max_line_length + 1);
   ctx->linebuffer_history = my_calloc(1, max_line_length + 1);
-  ctx->linebuffer_backup = my_calloc(1, max_line_length + 1);
+  ctx->linebuffer_work = my_calloc(1, max_line_length + 1);
   ctx->num_commands = num_commands;
   ctx->delimiters = strdup(delimiters);
   ctx->max_line_length = max_line_length;
@@ -76,7 +76,10 @@ static int cmd_interpreter_process_line(cmd_interpreter_ctx_t *ctx, char *line,
   char *saveptr;
   int rval;
   int i;
-  ctx->argv[0] = strtok_r(line, ctx->delimiters, &saveptr);
+
+  strncpy(ctx->linebuffer_work, line, ctx->max_line_length);
+
+  ctx->argv[0] = strtok_r(ctx->linebuffer_work, ctx->delimiters, &saveptr);
   if (ctx->argv[0] == NULL) {
     rval = CMD_INTERPRETER_EMPTY_INPUT;
   } else {
@@ -97,6 +100,7 @@ static int cmd_interpreter_process_line(cmd_interpreter_ctx_t *ctx, char *line,
       rval = ctx->cmd_list[i].callback(obj, j, ctx->argv);
     }
   }
+
   return rval;
 }
 
@@ -135,7 +139,6 @@ int cmd_interpreter_process(cmd_interpreter_ctx_t *ctx, char **buffer_start,
   }
   if (!got_line)
     return CMD_INTERPRETER_NO_MORE_DATA; /* thank you, come again */
-  strncpy(ctx->linebuffer_backup, ctx->linebuffer, ctx->max_line_length);
 
   int rval;
   if ((ctx->writepointer - ctx->linebuffer) == ctx->max_line_length) {
@@ -143,7 +146,7 @@ int cmd_interpreter_process(cmd_interpreter_ctx_t *ctx, char **buffer_start,
   } else {
     rval = cmd_interpreter_process_line(ctx, ctx->linebuffer, obj);
     if (!ctx->history_disable)
-      strncpy(ctx->linebuffer_history, ctx->linebuffer_backup,
+      strncpy(ctx->linebuffer_history, ctx->linebuffer,
               ctx->max_line_length);
     ctx->history_disable = 0;
   }
