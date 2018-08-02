@@ -14,10 +14,12 @@ static int do_test(void *obj, int argc, char *argv[]);
 static int do_repeat(void *obj, int argc, char *argv[]);
 static int do_user(void *obj, int argc, char *argv[]);
 static int do_password(void *obj, int argc, char *argv[]);
+static int do_restart(void *obj, int argc, char *argv[]);
 
 const cmd_interpreter_cmd_list_t command_descr[] = {
     {"+", do_repeat},  {"noop", do_noop}, {"quit", do_quit},
-    {"test", do_test}, {"user", do_user}, {"pass", do_password}};
+    {"test", do_test}, {"user", do_user}, {"pass", do_password},
+    {"restart", do_restart}};
 
 const int command_descr_num =
     sizeof(command_descr) / sizeof(cmd_interpreter_cmd_list_t);
@@ -26,7 +28,6 @@ static int access_ok(context_t *context)
 {
   return context->password_ok && context->user_ok;
 }
-
 
 int do_noop(void *obj, int argc, char *argv[]) {
   context_t *context = (context_t *)obj;
@@ -108,4 +109,14 @@ static int do_password(void *obj, int argc, char *argv[]) {
     status_reply(context->tcpfd, 1, "invalid password");
   }
   return 0;
+}
+
+static int do_restart(void *obj, int argc, char *argv[])
+{
+   context_t *context = (context_t *)obj;
+   if (argc != 1) {
+     return CMD_WRONG_ARGUMENT_COUNT;
+   }
+   status_reply(context->tcpfd, 1, "uvscpd is not capable of restarting");
+   return 0;
 }
