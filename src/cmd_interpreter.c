@@ -101,7 +101,6 @@ static int cmd_interpreter_process_line(cmd_interpreter_ctx_t *ctx, char *line,
 }
 
 int cmd_interpreter_repeat(cmd_interpreter_ctx_t *ctx, void *obj) {
-  printf("repeating [%s]\n", ctx->linebuffer_history);
   return cmd_interpreter_process_line(ctx, ctx->linebuffer_history, obj);
 }
 
@@ -137,7 +136,7 @@ int cmd_interpreter_process(cmd_interpreter_ctx_t *ctx, char **buffer_start,
   if (!got_line)
     return CMD_INTERPRETER_NO_MORE_DATA; /* thank you, come again */
   strncpy(ctx->linebuffer_backup, ctx->linebuffer, ctx->max_line_length);
-  
+
   int rval;
   if ((ctx->writepointer - ctx->linebuffer) == ctx->max_line_length) {
     rval = CMD_INTERPRETER_LINE_LENGTH_EXCEEDED;

@@ -18,9 +18,11 @@ const int command_descr_num =
     sizeof(command_descr) / sizeof(cmd_interpreter_cmd_list_t);
 
 int do_noop(void *obj, int argc, char *argv[]) {
+  context_t *context = (context_t *)obj;
   if (argc != 1) {
     return CMD_WRONG_ARGUMENT_COUNT;
   }
+  status_reply(context->tcpfd, 0, NULL);
   return 0;
 }
 
@@ -29,15 +31,17 @@ int do_quit(void *obj, int argc, char *argv[]) {
   if (argc != 1) {
     return CMD_WRONG_ARGUMENT_COUNT;
   }
-
+  status_reply(context->tcpfd, 0, "bye");
   context->stop_thread = 1;
   return 0;
 }
 
 int do_test(void *obj, int argc, char *argv[]) {
-  if (argc != 2) {
+  context_t *context = (context_t *)obj;
+  if (argc != 1) {
     return CMD_WRONG_ARGUMENT_COUNT;
   }
+  status_reply(context->tcpfd, 0, "bye");
   return 0;
 }
 
@@ -45,9 +49,10 @@ static int do_repeat(void *obj, int argc, char *argv[])
 {
    context_t *context = (context_t *)obj;
       cmd_interpreter_disable_history(context->cmd_interpreter);
-   if (argc != 1) {
-     return CMD_WRONG_ARGUMENT_COUNT;
+   if (argc == 1) {
+      return cmd_interpreter_repeat(context->cmd_interpreter, obj);
    }
-   return cmd_interpreter_repeat(context->cmd_interpreter, obj);
-   return 0;
+
+   return CMD_WRONG_ARGUMENT_COUNT;
+
 }
