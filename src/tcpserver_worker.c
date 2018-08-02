@@ -51,6 +51,9 @@ void tcpserver_work(int connfd) {
   const int max_argc = 10;
   const int max_line_length = 128;
 
+  context.user_ok = (cmd_user == NULL);
+  context.password_ok = (cmd_password == NULL);
+
   context.tcpfd = connfd;
   context.mode = normal;
   context.can_socket = socket(PF_CAN, SOCK_RAW, CAN_RAW);

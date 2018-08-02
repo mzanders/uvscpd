@@ -13,6 +13,8 @@ typedef struct {
   int command_buffer_wp;
   int stop_thread;
   cmd_interpreter_ctx_t *cmd_interpreter;
+  int user_ok;
+  int password_ok;
 } context_t;
 
 #endif /* _TCPSERVER_CONTEXT_H_ */

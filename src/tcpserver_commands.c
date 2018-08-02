@@ -1,21 +1,32 @@
+#include <string.h>
+
 #include "tcpserver_commands.h"
 #include "tcpserver_context.h"
 #include "tcpserver_worker.h"
+
+/* Global stuff */
+char *cmd_user = NULL;
+char *cmd_password = NULL;
 
 static int do_noop(void *obj, int argc, char *argv[]);
 static int do_quit(void *obj, int argc, char *argv[]);
 static int do_test(void *obj, int argc, char *argv[]);
 static int do_repeat(void *obj, int argc, char *argv[]);
+static int do_user(void *obj, int argc, char *argv[]);
+static int do_password(void *obj, int argc, char *argv[]);
 
 const cmd_interpreter_cmd_list_t command_descr[] = {
-    {"+", do_repeat},
-    {"noop", do_noop},
-    {"quit", do_quit},
-    {"test", do_test}
-};
+    {"+", do_repeat},  {"noop", do_noop}, {"quit", do_quit},
+    {"test", do_test}, {"user", do_user}, {"pass", do_password}};
 
 const int command_descr_num =
     sizeof(command_descr) / sizeof(cmd_interpreter_cmd_list_t);
+
+static int access_ok(context_t *context)
+{
+  return context->password_ok && context->user_ok;
+}
+
 
 int do_noop(void *obj, int argc, char *argv[]) {
   context_t *context = (context_t *)obj;
@@ -41,18 +52,60 @@ int do_test(void *obj, int argc, char *argv[]) {
   if (argc != 1) {
     return CMD_WRONG_ARGUMENT_COUNT;
   }
-  status_reply(context->tcpfd, 0, "bye");
+  if (access_ok(context))
+    status_reply(context->tcpfd, 0, NULL);
+  else
+    status_reply(context->tcpfd, 1, "no access");
+
   return 0;
 }
 
-static int do_repeat(void *obj, int argc, char *argv[])
-{
-   context_t *context = (context_t *)obj;
-      cmd_interpreter_disable_history(context->cmd_interpreter);
-   if (argc == 1) {
-      return cmd_interpreter_repeat(context->cmd_interpreter, obj);
-   }
+static int do_repeat(void *obj, int argc, char *argv[]) {
+  context_t *context = (context_t *)obj;
+  cmd_interpreter_disable_history(context->cmd_interpreter);
+  if (argc == 1) {
+    return cmd_interpreter_repeat(context->cmd_interpreter, obj);
+  }
 
-   return CMD_WRONG_ARGUMENT_COUNT;
+  return CMD_WRONG_ARGUMENT_COUNT;
+}
 
+static int do_user(void *obj, int argc, char *argv[]) {
+  context_t *context = (context_t *)obj;
+  if (argc != 2) {
+    return CMD_WRONG_ARGUMENT_COUNT;
+  }
+  if (cmd_user == NULL) {
+    context->user_ok = 1;
+    status_reply(context->tcpfd, 0, "no user configured");
+    return 0;
+  }
+  if (strcmp(argv[1], cmd_user) == 0) {
+    context->user_ok = 1;
+    status_reply(context->tcpfd, 0, NULL);
+  } else {
+    context->user_ok = 0;
+    status_reply(context->tcpfd, 1, "invalid user");
+  }
+  return 0;
+}
+
+static int do_password(void *obj, int argc, char *argv[]) {
+  context_t *context = (context_t *)obj;
+  if (argc != 2) {
+    return CMD_WRONG_ARGUMENT_COUNT;
+  }
+  if (cmd_password == NULL) {
+    context->password_ok = 1;
+    status_reply(context->tcpfd, 0, "no password configured");
+    return 0;
+  }
+  if (strcmp(argv[1], cmd_password) == 0) {
+    context->password_ok = 1;
+    status_reply(context->tcpfd, 0, NULL);
+  } else {
+    context->password_ok = 0;
+    status_reply(context->tcpfd, 1, "invalid password");
+  }
+  return 0;
 }

@@ -2,14 +2,15 @@
 #include <getopt.h>
 #include <signal.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <syslog.h>
 #include <unistd.h>
-#include <stdlib.h>
 
 #include "controller.h"
+#include "tcpserver_commands.h"
 
 void uvscpd_show_version(void);
 void uvscpd_show_help(void);
@@ -19,62 +20,65 @@ sig_atomic_t gsighup_received = 0;
 sig_atomic_t gsigint_received = 0;
 int gDaemonize = 1;
 
-void signal_handler(int signal_number)
-{
-  switch (signal_number)
-  {
-    case SIGHUP:
-      gsighup_received = 1;
+void signal_handler(int signal_number) {
+  switch (signal_number) {
+  case SIGHUP:
+    gsighup_received = 1;
 
-    case SIGTERM:
-      gsigterm_received = 1;
-      break;
+  case SIGTERM:
+    gsigterm_received = 1;
+    break;
 
-    case SIGINT:
-      gsigint_received = 1;
-      break;
+  case SIGINT:
+    gsigint_received = 1;
+    break;
 
-    default:
-      break;
+  default:
+    break;
   }
 }
 
-int main(int argc, char *argv[])
-{
+int main(int argc, char *argv[]) {
   int next_option = 0;
   int longindex;
   pid_t pid, sid;
 
   const char *const short_options = "hvs";
-  const struct option long_options[] = {// name, has_arg, flag, val
-                                        {"help", 0, NULL, 'h'},
-                                        {"version", 0, NULL, 'v'},
-                                        {"stay", 0, &gDaemonize, 0},
-                                        {NULL, 0, NULL, 0}};
+  const struct option long_options[] = {
+      // name, has_arg, flag, val
+      {"help", 0, NULL, 'h'},      {"version", 0, NULL, 'v'},
+      {"stay", 0, &gDaemonize, 0}, {"user", 1, NULL, 'U'},
+      {"password", 1, NULL, 'P'},  {NULL, 0, NULL, 0}};
   struct sigaction sa;
 
   while ((next_option = getopt_long(argc, argv, short_options, long_options,
-                                    &longindex)) != -1)
-  {
-    switch (next_option)
-    {
-      case 0:
-        break;
+                                    &longindex)) != -1) {
+    switch (next_option) {
+    case 0:
+      break;
 
-      case 'h':
-        uvscpd_show_help();
-        exit(0);
-        break;
+    case 'h':
+      uvscpd_show_help();
+      exit(0);
+      break;
 
-      case 'v':
-        uvscpd_show_version();
-        exit(0);
-        break;
+    case 'v':
+      uvscpd_show_version();
+      exit(0);
+      break;
 
-      case '?':
-      default:
-        uvscpd_show_help();
-        exit(-1);
+    case 'U':
+      cmd_user = strdup(optarg);
+      break;
+
+    case 'P':
+      cmd_password = strdup(optarg);
+      break;
+
+    case '?':
+    default:
+      uvscpd_show_help();
+      exit(-1);
     }
   }
 
@@ -84,21 +88,16 @@ int main(int argc, char *argv[])
   sigaction(SIGTERM, &sa, NULL);
   sigaction(SIGINT, &sa, NULL);
 
-  if (gDaemonize)
-  {
+  if (gDaemonize) {
     // Fork child
-    if (0 > (pid = fork()))
-    {
+    if (0 > (pid = fork())) {
       fprintf(stderr, "Failed to fork.\n");
       return -1;
-    }
-    else if (0 != pid)
-    {
+    } else if (0 != pid) {
       exit(0); // Parent exits
     }
     sid = setsid(); // Become session leader
-    if (sid < 0)
-    {
+    if (sid < 0) {
       // Failure
       fprintf(stderr, "uvscpd: failed to become session leader.\n");
       return -1;
@@ -113,8 +112,7 @@ int main(int argc, char *argv[])
 
     syslog(LOG_INFO, "uvscpd started");
 
-    if (open("/", 0))
-    {
+    if (open("/", 0)) {
       syslog(LOG_CRIT, "uvscpd: open / not 0: %m");
     }
 
@@ -122,13 +120,11 @@ int main(int argc, char *argv[])
     dup2(0, 2);
   }
   controller();
-
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 // copyleft
-void uvscpd_show_version(void)
-{
+void uvscpd_show_version(void) {
   printf("uvscpd 0.1\n");
   printf("Copyright (C) 2017 Maarten Zanders\n");
   printf("License GPLv3+: GNU GPL version 3 or later ");
@@ -140,7 +136,6 @@ void uvscpd_show_version(void)
 
 ///////////////////////////////////////////////////////////////////////////////
 // help
-void uvscpd_show_help(void)
-{
+void uvscpd_show_help(void) {
   printf("No usage information so far... sorry!\n");
 }
