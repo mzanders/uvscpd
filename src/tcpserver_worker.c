@@ -36,7 +36,7 @@ typedef struct {
 
 void tcpserver_handle_input(context_t *context, char *buffer, ssize_t length);
 
-void tcpserver_work(int connfd, const char * can_bus) {
+void tcpserver_work(int connfd, const char *can_bus) {
   ssize_t n;
   char buf[120];
   context_t context;
@@ -51,7 +51,7 @@ void tcpserver_work(int connfd, const char * can_bus) {
 
   context.user_ok = (cmd_user == NULL);
   context.password_ok = (cmd_password == NULL);
-
+  context.stop_thread = 0;
   context.tcpfd = connfd;
   context.mode = normal;
   context.can_socket = socket(PF_CAN, SOCK_RAW, CAN_RAW);
@@ -60,15 +60,28 @@ void tcpserver_work(int connfd, const char * can_bus) {
       command_descr, command_descr_num, max_argc, 1, max_line_length, " ,");
   pthread_cleanup_push(tcpserver_work_cleanup, context.cmd_interpreter);
 
-  strcpy(ifr.ifr_name, can_bus);
-  ioctl(context.can_socket, SIOCGIFINDEX, &ifr);
-  addr.can_family = AF_CAN;
-  addr.can_ifindex = ifr.ifr_ifindex;
-
-  bind(context.can_socket, (struct sockaddr *)&addr, sizeof(addr));
-
   writen(context.tcpfd, welcome_message, strlen(welcome_message));
-  status_reply(context.tcpfd, 0, "Success.");
+
+  strcpy(ifr.ifr_name, can_bus);
+  if (ioctl(context.can_socket, SIOCGIFINDEX, &ifr) == -1) {
+    snprintf(buf, 120, "interface [%s] error: %s", can_bus, strerror(errno));
+    status_reply(context.tcpfd, 1, buf);
+    context.stop_thread = 1;
+  } else {
+    addr.can_family = AF_CAN;
+    addr.can_ifindex = ifr.ifr_ifindex;
+
+    if (bind(context.can_socket, (struct sockaddr *)&addr, sizeof(addr)) ==
+        -1) {
+      snprintf(buf, 120, "error binding to CAN bus: %s", strerror(errno));
+      status_reply(context.tcpfd, 1, buf);
+      context.stop_thread = 1;
+    } else
+    {
+      snprintf(buf, 120, "Success, connected to %s", can_bus);
+      status_reply(context.tcpfd, 0, buf);
+   }
+  }
 
   // Set up the poll structure
   poll_fd[0].fd = context.tcpfd;
@@ -78,7 +91,6 @@ void tcpserver_work(int connfd, const char * can_bus) {
   poll_fd[1].events = POLLIN;
   poll_fd[1].revents = 0;
 
-  context.stop_thread = 0;
   while (!context.stop_thread) {
     switch (context.mode) {
     case normal:

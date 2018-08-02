@@ -51,7 +51,7 @@ int main(int argc, char *argv[]) {
 
   uint32_t ip_addr = 0; /* any address...*/
   uint16_t port = TCPSERVER_PORT;
-  char *can_bus;
+  char *can_bus = "can0";
 
   const char *const short_options = "hvsUP";
   const struct option long_options[] = {
