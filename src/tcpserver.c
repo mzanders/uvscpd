@@ -16,7 +16,6 @@
 #include "tcpserver_worker.h"
 
 #define NUM_CONNECTIONS 5
-#define TCPSERVER_PORT 33000
 
 static const char *ModuleName = "TCPServer";
 static int tcpserver_running = 0;
@@ -27,6 +26,7 @@ typedef struct {
   pthread_t thread_tid;
   sem_t start_sem;
   int connfd;
+  const char * can_bus;
   pthread_mutex_t connfd_lock;
 } Thread;
 
@@ -40,9 +40,8 @@ pthread_mutex_t mlock;
 
 void *dispatch_thread(void *arg);
 void *worker_thread(void *arg);
-void tcpserver_work(int connfd);
 
-void tcpserver_start(void) {
+void tcpserver_start(const char * can_bus, uint32_t ip_addr, uint16_t port) {
   int i;
   struct sockaddr_in servaddr;
 
@@ -58,8 +57,8 @@ void tcpserver_start(void) {
   /* Bind to the created socket */
   memset(&servaddr, 0, sizeof(servaddr));
   servaddr.sin_family = AF_INET;
-  servaddr.sin_addr.s_addr = htonl(INADDR_ANY);
-  servaddr.sin_port = htons(TCPSERVER_PORT);
+  servaddr.sin_addr.s_addr = ip_addr;
+  servaddr.sin_port = htons(port);
 
   if (bind(listenfd, (struct sockaddr *)&servaddr, sizeof(servaddr)) < 0)
     SysMError("bind");
@@ -77,6 +76,7 @@ void tcpserver_start(void) {
   /* create worker threads first, they will block on the semaphore */
   for (i = 0; i < nthreads; i++) {
     sem_init(&(tptr[i].start_sem), 0, 0);
+    tptr[i].can_bus = can_bus;
     if (pthread_create(&tptr[i].thread_tid, NULL, &worker_thread, &(tptr[i])) !=
         0)
       NonSysError(ModuleName, "pthread_create worker");
@@ -147,7 +147,7 @@ void *worker_thread(void *arg) {
         NonSysError("TCPServer", "worker mutex unlock");
 
       if (connection != 0) {
-        tcpserver_work(connection);
+        tcpserver_work(connection, info->can_bus);
 
         if (close(connection) < 0)
           SysMError("thread close FD");

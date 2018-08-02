@@ -1,6 +1,8 @@
+#include <arpa/inet.h>
 #include <fcntl.h>
 #include <getopt.h>
 #include <signal.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -11,6 +13,9 @@
 
 #include "controller.h"
 #include "tcpserver_commands.h"
+#include "tcpserver_worker.h"
+
+#define TCPSERVER_PORT 8598
 
 void uvscpd_show_version(void);
 void uvscpd_show_help(void);
@@ -42,13 +47,20 @@ int main(int argc, char *argv[]) {
   int next_option = 0;
   int longindex;
   pid_t pid, sid;
+  char *endptr;
 
-  const char *const short_options = "hvs";
+  uint32_t ip_addr = 0; /* any address...*/
+  uint16_t port = TCPSERVER_PORT;
+  char *can_bus;
+
+  const char *const short_options = "hvsUP";
   const struct option long_options[] = {
       // name, has_arg, flag, val
       {"help", 0, NULL, 'h'},      {"version", 0, NULL, 'v'},
       {"stay", 0, &gDaemonize, 0}, {"user", 1, NULL, 'U'},
-      {"password", 1, NULL, 'P'},  {NULL, 0, NULL, 0}};
+      {"password", 1, NULL, 'P'},  {"canbus", 1, NULL, 'c'},
+      {"ip", 1, NULL, 'i'},        {"port", 1, NULL, 'p'},
+      {NULL, 0, NULL, 0}};
   struct sigaction sa;
 
   while ((next_option = getopt_long(argc, argv, short_options, long_options,
@@ -73,6 +85,26 @@ int main(int argc, char *argv[]) {
 
     case 'P':
       cmd_password = strdup(optarg);
+      break;
+
+    case 'c':
+      can_bus = strdup(optarg);
+      break;
+
+    case 'p':
+      endptr = optarg;
+      port = strtol(optarg, &endptr, 10);
+      if (endptr == NULL) {
+        fprintf(stderr, "invalid port\n");
+        exit(-1);
+      }
+      break;
+
+    case 'i':
+      if (inet_pton(AF_INET, optarg, &ip_addr) != 1) {
+        fprintf(stderr, "invalid ip address\n");
+        exit(-1);
+      }
       break;
 
     case '?':
@@ -119,7 +151,7 @@ int main(int argc, char *argv[]) {
     dup2(0, 1);
     dup2(0, 2);
   }
-  controller();
+  controller(can_bus, ip_addr, port);
 }
 
 ///////////////////////////////////////////////////////////////////////////////

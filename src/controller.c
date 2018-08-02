@@ -13,11 +13,11 @@ extern sig_atomic_t gsighup_received;
 extern sig_atomic_t gsigint_received;
 
 
-void controller ()
+void controller (const char * can_bus, uint32_t ip_addr, uint16_t port)
 {
   openlog("uvscpd : ", LOG_PID, LOG_USER);
 
-  tcpserver_start();
+  tcpserver_start(can_bus, ip_addr, port);
 
   while (1)
   {

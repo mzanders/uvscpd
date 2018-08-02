@@ -19,8 +19,6 @@
 #include "tcpserver_context.h"
 #include "tcpserver_worker.h"
 
-static const char *ModuleName = "TCPServerWorker";
-
 /* helper functions */
 ssize_t writen(int fd, const void *vptr, size_t n);
 void handle_noop(context_t *context);
@@ -38,7 +36,7 @@ typedef struct {
 
 void tcpserver_handle_input(context_t *context, char *buffer, ssize_t length);
 
-void tcpserver_work(int connfd) {
+void tcpserver_work(int connfd, const char * can_bus) {
   ssize_t n;
   char buf[120];
   context_t context;
@@ -62,7 +60,7 @@ void tcpserver_work(int connfd) {
       command_descr, command_descr_num, max_argc, 1, max_line_length, " ,");
   pthread_cleanup_push(tcpserver_work_cleanup, context.cmd_interpreter);
 
-  strcpy(ifr.ifr_name, "can0");
+  strcpy(ifr.ifr_name, can_bus);
   ioctl(context.can_socket, SIOCGIFINDEX, &ifr);
   addr.can_family = AF_CAN;
   addr.can_ifindex = ifr.ifr_ifindex;
