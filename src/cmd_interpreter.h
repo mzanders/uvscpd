@@ -24,6 +24,11 @@ cmd_interpreter_ctx_t* cmd_interpreter_ctx_create(
 
 void * cmd_interpreter_free(cmd_interpreter_ctx_t* ctx);
 
+int cmd_interpreter_repeat(cmd_interpreter_ctx_t *ctx, void *obj);
+
+void cmd_interpreter_disable_history(cmd_interpreter_ctx_t *ctx);
+
+
 // returns 0 when end of buffer reached without command
 // returns < 0 when there was an error, see defines
 // returns cmd_id when successfully decoded the command
@@ -36,9 +41,9 @@ void * cmd_interpreter_free(cmd_interpreter_ctx_t* ctx);
 int cmd_interpreter_process(cmd_interpreter_ctx_t* ctx, char** buffer_start,
                             size_t buffer_len, void * obj);
 
-#define CMD_INTERPRETER_LINE_LENGTH_EXCEEDED -1
-#define CMD_INTERPRETER_EMPTY_INPUT -2
-#define CMD_INTERPRETER_INVALID_COMMAND -3
-#define CMD_INTERPRETER_CALLBACK_RETURNED_ERROR -4
+#define CMD_INTERPRETER_NO_MORE_DATA -1
+#define CMD_INTERPRETER_LINE_LENGTH_EXCEEDED -2
+#define CMD_INTERPRETER_EMPTY_INPUT -3
+#define CMD_INTERPRETER_INVALID_COMMAND -4
 
 #endif /* _CMD_INTERPRETER_H_ */

@@ -56,7 +56,7 @@ void tcpserver_work(int connfd) {
   context.can_socket = socket(PF_CAN, SOCK_RAW, CAN_RAW);
   context.command_buffer_wp = 0;
   context.cmd_interpreter = cmd_interpreter_ctx_create(
-      command_descr, command_descr_num, max_argc, 0, max_line_length, " ");
+      command_descr, command_descr_num, max_argc, 1, max_line_length, " ,");
   pthread_cleanup_push(tcpserver_work_cleanup, context.cmd_interpreter);
 
   strcpy(ifr.ifr_name, "can0");
@@ -176,32 +176,26 @@ void tcpserver_handle_input(context_t *context, char *buffer, ssize_t length) {
   do {
     rval = cmd_interpreter_process(context->cmd_interpreter, &saveptr,
                                    (length - (saveptr - buffer)), context);
-    if (rval > 0)
-      status_reply(context->tcpfd, 0, NULL);
     if (rval < 0) {
       switch (rval) {
+      case CMD_INTERPRETER_NO_MORE_DATA:
+        break;
       case CMD_INTERPRETER_LINE_LENGTH_EXCEEDED:
         status_reply(context->tcpfd, 1, "line length exceeded");
         break;
-
       case CMD_INTERPRETER_EMPTY_INPUT:
         status_reply(context->tcpfd, 1, "no input");
         break;
       case CMD_INTERPRETER_INVALID_COMMAND:
         status_reply(context->tcpfd, 1, "invalid command");
         break;
-      case CMD_INTERPRETER_CALLBACK_RETURNED_ERROR:
-        status_reply(context->tcpfd, 1, "error in command");
+      case CMD_WRONG_ARGUMENT_COUNT:
+        status_reply(context->tcpfd, 1, "wrong number of arguments");
+        break;
+      default:
+        status_reply(context->tcpfd, 1, NULL);
         break;
       }
     }
-
-  } while (rval != 0);
-}
-
-void handle_noop(context_t *context) {}
-
-void handle_quit(context_t *context) {
-  status_reply(context->tcpfd, 0, NULL);
-  context->stop_thread = 1;
+  } while (rval != CMD_INTERPRETER_NO_MORE_DATA);
 }
