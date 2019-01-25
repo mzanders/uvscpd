@@ -15,11 +15,12 @@ static int do_repeat(void *obj, int argc, char *argv[]);
 static int do_user(void *obj, int argc, char *argv[]);
 static int do_password(void *obj, int argc, char *argv[]);
 static int do_restart(void *obj, int argc, char *argv[]);
+static int do_send(void *obj, int argc, char *argv[]);
 
 const cmd_interpreter_cmd_list_t command_descr[] = {
     {"+", do_repeat},  {"noop", do_noop}, {"quit", do_quit},
     {"test", do_test}, {"user", do_user}, {"pass", do_password},
-    {"restart", do_restart}, {"shutdown", do_restart}};
+    {"restart", do_restart}, {"shutdown", do_restart}, {"send", do_send}};
 
 const int command_descr_num =
     sizeof(command_descr) / sizeof(cmd_interpreter_cmd_list_t);
@@ -119,4 +120,14 @@ static int do_restart(void *obj, int argc, char *argv[])
    }
    status_reply(context->tcpfd, 1, "uvscpd is not capable of restart/shutdown");
    return 0;
+}
+
+// send head,class,type,obid,datetime,timestamp,GUID,data1,data2,data3....
+static int do_send(void *obj, int argc, char *argv[])
+{
+  context_t *context = (context_t *)obj;
+  if (argc != 2) {
+       return CMD_WRONG_ARGUMENT_COUNT;
+  }
+  return 0;
 }

@@ -57,7 +57,7 @@ void tcpserver_work(int connfd, const char *can_bus) {
   context.can_socket = socket(PF_CAN, SOCK_RAW, CAN_RAW);
   context.command_buffer_wp = 0;
   context.cmd_interpreter = cmd_interpreter_ctx_create(
-      command_descr, command_descr_num, max_argc, 1, max_line_length, " ,");
+      command_descr, command_descr_num, max_argc, 1, max_line_length, " ");
   pthread_cleanup_push(tcpserver_work_cleanup, context.cmd_interpreter);
 
   writen(context.tcpfd, welcome_message, strlen(welcome_message));
