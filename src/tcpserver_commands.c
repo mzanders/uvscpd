@@ -1,8 +1,12 @@
+#include <errno.h>
+#include <stdio.h>
 #include <string.h>
 
 #include "tcpserver_commands.h"
 #include "tcpserver_context.h"
 #include "tcpserver_worker.h"
+#include "unistd.h"
+#include "vscp.h"
 
 /* Global stuff */
 char *cmd_user = NULL;
@@ -18,15 +22,14 @@ static int do_restart(void *obj, int argc, char *argv[]);
 static int do_send(void *obj, int argc, char *argv[]);
 
 const cmd_interpreter_cmd_list_t command_descr[] = {
-    {"+", do_repeat},  {"noop", do_noop}, {"quit", do_quit},
-    {"test", do_test}, {"user", do_user}, {"pass", do_password},
+    {"+", do_repeat},        {"noop", do_noop},        {"quit", do_quit},
+    {"test", do_test},       {"user", do_user},        {"pass", do_password},
     {"restart", do_restart}, {"shutdown", do_restart}, {"send", do_send}};
 
 const int command_descr_num =
     sizeof(command_descr) / sizeof(cmd_interpreter_cmd_list_t);
 
-static int access_ok(context_t *context)
-{
+static int access_ok(context_t *context) {
   return context->password_ok && context->user_ok;
 }
 
@@ -112,22 +115,33 @@ static int do_password(void *obj, int argc, char *argv[]) {
   return 0;
 }
 
-static int do_restart(void *obj, int argc, char *argv[])
-{
-   context_t *context = (context_t *)obj;
-   if (argc != 1) {
-     return CMD_WRONG_ARGUMENT_COUNT;
-   }
-   status_reply(context->tcpfd, 1, "uvscpd is not capable of restart/shutdown");
-   return 0;
+static int do_restart(void *obj, int argc, char *argv[]) {
+  context_t *context = (context_t *)obj;
+  if (argc != 1) {
+    return CMD_WRONG_ARGUMENT_COUNT;
+  }
+  status_reply(context->tcpfd, 1, "uvscpd is not capable of restart/shutdown");
+  return 0;
 }
 
 // send head,class,type,obid,datetime,timestamp,GUID,data1,data2,data3....
-static int do_send(void *obj, int argc, char *argv[])
-{
+static int do_send(void *obj, int argc, char *argv[]) {
+  vscp_msg_t msg;
+  struct can_frame tx;
   context_t *context = (context_t *)obj;
   if (argc != 2) {
-       return CMD_WRONG_ARGUMENT_COUNT;
+    return CMD_WRONG_ARGUMENT_COUNT;
   }
+  if (vscp_parse_msg(argv[1], &msg)) {
+    status_reply(context->tcpfd, 1, "format error in CAN frame");
+    return 0;
+  }
+  vscp_to_can(&msg, &tx);
+  if (write(context->can_socket, &tx, sizeof(struct can_frame)) !=
+      sizeof(struct can_frame)) {
+    status_reply(context->tcpfd, 1, "problem when writing to CAN socket");
+    return 0;
+  }
+  status_reply(context->tcpfd, 0, NULL);
   return 0;
 }

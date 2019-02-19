@@ -9,5 +9,6 @@ extern char * cmd_user;
 extern char * cmd_password;
 
 #define CMD_WRONG_ARGUMENT_COUNT -10
+#define CMD_FORMAT_ERROR         -11
 
 #endif /* _TCPSERVER_COMMANDS_H_ */
