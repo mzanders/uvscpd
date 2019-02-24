@@ -26,6 +26,8 @@ static int do_password(void *obj, int argc, char *argv[]);
 static int do_restart(void *obj, int argc, char *argv[]);
 static int do_send(void *obj, int argc, char *argv[]);
 static int do_retrieve(void *obj, int argc, char *argv[]);
+static int do_rcvloop(void *obj, int argc, char *argv[]);
+static int do_quitloop(void *obj, int argc, char *argv[]);
 static int do_checkdata(void *obj, int argc, char *argv[]);
 static int do_clearall(void *obj, int argc, char *argv[]);
 
@@ -35,6 +37,7 @@ const cmd_interpreter_cmd_list_t command_descr[] = {
     {"user", do_user},       {"pass", do_password},
     {"restart", do_restart}, {"shutdown", do_restart},
     {"send", do_send},       {"retr", do_retrieve},
+    {"rcvloop", do_rcvloop}, {"quitloop", do_quitloop},
     {"cdata", do_checkdata}, {"checkdata", do_checkdata},
     {"clra", do_clearall}};
 
@@ -191,6 +194,40 @@ static int do_retrieve(void *obj, int argc, char *argv[]) {
   else
     status_reply(context->tcpfd, 0, NULL);
 
+  return 0;
+}
+
+static int do_rcvloop(void *obj, int argc, char *argv[]) {
+  context_t *context = (context_t *)obj;
+  int empty_buffer = 0;
+  char buf[120];
+  int n;
+  vscp_msg_t msg;
+  if (argc != 1) {
+    return CMD_WRONG_ARGUMENT_COUNT;
+  }
+  context->mode = loop;
+
+  clock_gettime(CLOCK_MONOTONIC_RAW, &(context->last_keepalive));
+  status_reply(context->tcpfd, 0, NULL);
+
+  while (!empty_buffer) {
+    empty_buffer = vscp_buffer_pop(context->rx_buffer, &msg);
+    if (!empty_buffer) {
+      n = print_vscp(&msg, buf, sizeof(buf));
+      writen(context->tcpfd, buf, n);
+    }
+  }
+  return 0;
+}
+
+static int do_quitloop(void *obj, int argc, char *argv[]) {
+  context_t *context = (context_t *)obj;
+  if (argc != 1) {
+    return CMD_WRONG_ARGUMENT_COUNT;
+  }
+  context->mode = normal;
+  status_reply(context->tcpfd, 0, NULL);
   return 0;
 }
 

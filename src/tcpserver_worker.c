@@ -12,6 +12,7 @@
 #include <sys/ioctl.h>
 #include <sys/socket.h>
 #include <sys/types.h>
+#include <time.h>
 
 #include "cmd_interpreter.h"
 #include "syserror.h"
@@ -112,7 +113,7 @@ void tcpserver_work(int connfd, const char *can_bus) {
     poll_fd[1].revents = 0;
 
     int poll_rv;
-    poll_rv = poll(poll_fd, 2, -1);
+    poll_rv = poll(poll_fd, 2, 200);
 
     if (poll_rv < 0) {
       snprintf(buf, 120, "Poll error - %s", strerror(errno));
@@ -149,6 +150,19 @@ void tcpserver_work(int connfd, const char *can_bus) {
       if (poll_fd[1].revents & (POLLERR | POLLHUP | POLLNVAL)) {
         status_reply(context.tcpfd, 1, "CAN Disconnected - bye!");
         context.stop_thread = 1;
+     }
+    }
+    /* POLL TIMEOUT */
+    else if (poll_rv == 0) {
+      if (context.mode == loop) {
+        struct timespec now;
+        clock_gettime(CLOCK_MONOTONIC_RAW, &now);
+        /* this is not really accurate, especially on the first run, but close
+         * enough and it will do for the purpose */
+        if ((now.tv_sec - context.last_keepalive.tv_sec) > 1) {
+          status_reply(context.tcpfd, 0, NULL);
+          context.last_keepalive = now;
+        }
       }
     }
   }
@@ -156,9 +170,9 @@ void tcpserver_work(int connfd, const char *can_bus) {
 }
 
 void tcpserver_work_cleanup(void *context) {
-   context_t * ctx = (context_t*) context;
-   cmd_interpreter_free(ctx->cmd_interpreter);
-   vscp_buffer_free(ctx->rx_buffer);
+  context_t *ctx = (context_t *)context;
+  cmd_interpreter_free(ctx->cmd_interpreter);
+  vscp_buffer_free(ctx->rx_buffer);
 }
 
 /* Write "n" bytes to a descriptor. */
@@ -192,7 +206,7 @@ int status_reply(int fd, int error, char *msg) {
 
   strcat(buffer, "OK");
 
-  if (msg != 0 && strlen(msg)>0) {
+  if (msg != 0 && strlen(msg) > 0) {
     strcat(buffer, " - ");
     strncat(buffer, msg, sizeof(buffer) - strlen(buffer) - 3);
   }

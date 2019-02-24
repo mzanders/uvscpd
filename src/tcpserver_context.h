@@ -1,6 +1,7 @@
 #ifndef _TCPSERVER_CONTEXT_H_
 #define _TCPSERVER_CONTEXT_H_
 
+#include <time.h>
 #include "cmd_interpreter.h"
 #include "vscp_buffer.h"
 
@@ -17,6 +18,7 @@ typedef struct {
   int user_ok;
   int password_ok;
   vscp_buffer_ctx_t * rx_buffer;
+  struct timespec last_keepalive;
 } context_t;
 
 #endif /* _TCPSERVER_CONTEXT_H_ */
