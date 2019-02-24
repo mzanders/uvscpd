@@ -122,17 +122,27 @@ int can_to_vscp(const struct can_frame *frame,
 // datetime YYYY-MM-DDTHH:MM:DD
 int print_vscp(const vscp_msg_t *msg, char *buffer, size_t buffer_size) {
   int i;
+  char timebuffer[32];
 
-  snprintf(buffer, buffer_size - 1, "%u,%u,%u,0,XX,%u,%s%u,", msg->head,
-           msg->class, msg->type, msg->hw_timestamp, "GUID:", msg->origin);
+  struct tm *tmp;
+  tmp = gmtime(&(msg->timestamp));
+
+  if (tmp != NULL)
+    strftime(timebuffer, 32, "%FT%H:%M:%S", tmp);
+  else
+    snprintf(timebuffer, 32, "");
+
+  snprintf(buffer, buffer_size, "%u,%u,%u,0,%s,%u,%s%u,", msg->head,
+           msg->class, msg->type, timebuffer, msg->hw_timestamp,
+           "GUID:", msg->origin);
 
   for (i = 0; (i < msg->data_length) && (i < 8); i++) {
     char temp[8];
     snprintf(temp, 7, "%u,", msg->data[i]);
     strncat(buffer, temp, buffer_size - 1);
   }
-  buffer[strlen(buffer)-1] = 0;
-  strncat(buffer, "\n\r", buffer_size - 1);
+  buffer[strlen(buffer) - 1] = 0;
+  strncat(buffer, "\n\r", buffer_size);
 
   return strlen(buffer);
 }
