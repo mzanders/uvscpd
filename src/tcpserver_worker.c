@@ -1,4 +1,5 @@
 #include <errno.h>
+#include <fcntl.h>
 #include <linux/can/raw.h>
 #include <linux/sockios.h>
 #include <net/if.h>
@@ -11,13 +12,14 @@
 #include <sys/ioctl.h>
 #include <sys/socket.h>
 #include <sys/types.h>
-#include <unistd.h>
 
 #include "cmd_interpreter.h"
 #include "syserror.h"
 #include "tcpserver_commands.h"
 #include "tcpserver_context.h"
 #include "tcpserver_worker.h"
+#include "vscp.h"
+#include "vscp_buffer.h"
 
 /* helper functions */
 ssize_t writen(int fd, const void *vptr, size_t n);
@@ -25,7 +27,6 @@ void handle_noop(context_t *context);
 void handle_quit(context_t *context);
 void tcpserver_work_cleanup(void *context);
 int status_reply(int fd, int error, char *msg);
-int print_vscp_frame(context_t *context, struct can_frame frame);
 int nbytes;
 
 typedef struct {
@@ -36,6 +37,19 @@ typedef struct {
 
 void tcpserver_handle_input(context_t *context, char *buffer, ssize_t length);
 
+int print_vscp_frame(context_t *context, const struct can_frame *frame) {
+  char buffer[120];
+  char minibuf[10];
+
+  sprintf(buffer, "0x%08X", frame->can_id);
+  for (int i = 0; i < frame->can_dlc; i++) {
+    sprintf(minibuf, ",0x%02X", frame->data[i]);
+    strcat(buffer, minibuf);
+  }
+  strcat(buffer, "\n\r");
+  return writen(context->tcpfd, buffer, strlen(buffer));
+}
+
 void tcpserver_work(int connfd, const char *can_bus) {
   ssize_t n;
   char buf[120];
@@ -44,7 +58,8 @@ void tcpserver_work(int connfd, const char *can_bus) {
                           "<maarten.zanders@gmail.com>\n\r";
   struct sockaddr_can addr;
   struct ifreq ifr;
-  struct can_frame;
+  struct can_frame frame;
+  int sock_flags;
   struct pollfd poll_fd[2];
   const int max_argc = 10;
   const int max_line_length = 128;
@@ -58,11 +73,12 @@ void tcpserver_work(int connfd, const char *can_bus) {
   context.command_buffer_wp = 0;
   context.cmd_interpreter = cmd_interpreter_ctx_create(
       command_descr, command_descr_num, max_argc, 1, max_line_length, " ");
-  pthread_cleanup_push(tcpserver_work_cleanup, context.cmd_interpreter);
+  context.rx_buffer = vscp_buffer_ctx_create(100);
+  pthread_cleanup_push(tcpserver_work_cleanup, &context);
 
   writen(context.tcpfd, welcome_message, strlen(welcome_message));
 
-  strcpy(ifr.ifr_name, can_bus);
+  strncpy(ifr.ifr_name, can_bus, IFNAMSIZ - 1);
   if (ioctl(context.can_socket, SIOCGIFINDEX, &ifr) == -1) {
     snprintf(buf, 120, "interface [%s] error: %s", can_bus, strerror(errno));
     status_reply(context.tcpfd, 1, buf);
@@ -71,63 +87,79 @@ void tcpserver_work(int connfd, const char *can_bus) {
     addr.can_family = AF_CAN;
     addr.can_ifindex = ifr.ifr_ifindex;
 
+    /* set to non-blocking mode */
+    sock_flags = fcntl(context.can_socket, F_GETFL, 0);
+    fcntl(context.can_socket, F_SETFL, sock_flags | O_NONBLOCK);
+
     if (bind(context.can_socket, (struct sockaddr *)&addr, sizeof(addr)) ==
         -1) {
       snprintf(buf, 120, "error binding to CAN bus: %s", strerror(errno));
       status_reply(context.tcpfd, 1, buf);
       context.stop_thread = 1;
-    } else
-    {
+    } else {
       snprintf(buf, 120, "Success, connected to %s", can_bus);
       status_reply(context.tcpfd, 0, buf);
-   }
+    }
   }
-
-  // Set up the poll structure
-  poll_fd[0].fd = context.tcpfd;
-  poll_fd[0].events = POLLIN;
-  poll_fd[0].revents = 0;
-  poll_fd[1].fd = context.can_socket;
-  poll_fd[1].events = POLLIN;
-  poll_fd[1].revents = 0;
 
   while (!context.stop_thread) {
-    switch (context.mode) {
-    case normal:
-      n = read(context.tcpfd, buf, sizeof(buf));
+    // Set up the poll structure
+    poll_fd[0].fd = context.tcpfd;
+    poll_fd[0].events = POLLIN;
+    poll_fd[0].revents = 0;
+    poll_fd[1].fd = context.can_socket;
+    poll_fd[1].events = POLLIN;
+    poll_fd[1].revents = 0;
 
-      if (n < 0 && errno != EINTR) {
+    int poll_rv;
+    poll_rv = poll(poll_fd, 2, -1);
+
+    if (poll_rv < 0) {
+      snprintf(buf, 120, "Poll error - %s", strerror(errno));
+      status_reply(context.tcpfd, 1, buf);
+      context.stop_thread = 1;
+    } else if (poll_rv > 0) {
+
+      /* handle TCP events */
+      if (poll_fd[0].revents & POLLIN) {
+        n = read(context.tcpfd, buf, sizeof(buf));
+        tcpserver_handle_input(&context, buf, n);
+      }
+      if (poll_fd[0].revents & (POLLERR | POLLHUP | POLLNVAL)) {
         context.stop_thread = 1;
-      } else {
-        if (errno != EINTR)
-          tcpserver_handle_input(&context, buf, n);
       }
 
-      break;
-
-    case loop:
-      // similar as above but add poll and CAN reception
-      break;
+      /* handle CAN events */
+      if (poll_fd[1].revents & POLLIN) {
+        if (read(context.can_socket, &frame, sizeof(struct can_frame)) ==
+            sizeof(struct can_frame)) {
+          vscp_msg_t msg;
+          struct timeval tv;
+          ioctl(context.can_socket, SIOCGSTAMP, &tv);
+          if (!can_to_vscp(&frame, &tv, &msg)) {
+            if (context.mode == loop) {
+              n = print_vscp(&msg, buf, sizeof(buf));
+              writen(context.tcpfd, buf, n);
+            } else {
+              vscp_buffer_push(context.rx_buffer, &msg);
+            }
+          }
+        }
+      }
+      if (poll_fd[1].revents & (POLLERR | POLLHUP | POLLNVAL)) {
+        status_reply(context.tcpfd, 1, "CAN Disconnected - bye!");
+        context.stop_thread = 1;
+      }
     }
   }
-
-  /*
-
-    again:
-    while ( (n = read(context.tcpfd, buf, 120)) > 0)
-    {
-      writen(context.tcpfd, buf, n);
-    }
-    if (n < 0 && errno == EINTR)
-      goto again;
-    else if (n < 0)
-      SysMError("thread read");
-  */
-
   pthread_cleanup_pop(1);
 }
 
-void tcpserver_work_cleanup(void *context) { cmd_interpreter_free(context); }
+void tcpserver_work_cleanup(void *context) {
+   context_t * ctx = (context_t*) context;
+   cmd_interpreter_free(ctx->cmd_interpreter);
+   vscp_buffer_free(ctx->rx_buffer);
+}
 
 /* Write "n" bytes to a descriptor. */
 ssize_t writen(int fd, const void *vptr, size_t n) {
@@ -160,26 +192,13 @@ int status_reply(int fd, int error, char *msg) {
 
   strcat(buffer, "OK");
 
-  if (msg != 0) {
+  if (msg != 0 && strlen(msg)>0) {
     strcat(buffer, " - ");
     strncat(buffer, msg, sizeof(buffer) - strlen(buffer) - 3);
   }
   strcat(buffer, "\n\r");
 
   return writen(fd, buffer, strlen(buffer));
-}
-
-int print_vscp_frame(context_t *context, struct can_frame frame) {
-  char buffer[120];
-  char minibuf[10];
-
-  sprintf(buffer, "0x%08X", frame.can_id);
-  for (int i = 0; i < frame.can_dlc; i++) {
-    sprintf(minibuf, ",0x%02X", frame.data[i]);
-    strcat(buffer, minibuf);
-  }
-  strcat(buffer, "\n\r");
-  return writen(context->tcpfd, buffer, strlen(buffer));
 }
 
 void tcpserver_handle_input(context_t *context, char *buffer, ssize_t length) {
