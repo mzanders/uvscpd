@@ -1,10 +1,10 @@
 #include <errno.h>
-#include <stdio.h>
-#include <string.h>
-#include <sys/ioctl.h>
 #include <linux/can.h>
 #include <linux/can/raw.h>
 #include <net/if.h>
+#include <stdio.h>
+#include <string.h>
+#include <sys/ioctl.h>
 
 #include "tcpserver_commands.h"
 #include "tcpserver_context.h"
@@ -27,6 +27,7 @@ static int do_restart(void *obj, int argc, char *argv[]);
 static int do_send(void *obj, int argc, char *argv[]);
 static int do_retrieve(void *obj, int argc, char *argv[]);
 static int do_checkdata(void *obj, int argc, char *argv[]);
+static int do_clearall(void *obj, int argc, char *argv[]);
 
 const cmd_interpreter_cmd_list_t command_descr[] = {
     {"+", do_repeat},        {"noop", do_noop},
@@ -34,7 +35,8 @@ const cmd_interpreter_cmd_list_t command_descr[] = {
     {"user", do_user},       {"pass", do_password},
     {"restart", do_restart}, {"shutdown", do_restart},
     {"send", do_send},       {"retr", do_retrieve},
-    {"cdata", do_checkdata}, {"checkdata", do_checkdata}};
+    {"cdata", do_checkdata}, {"checkdata", do_checkdata},
+    {"clra", do_clearall}};
 
 const int command_descr_num =
     sizeof(command_descr) / sizeof(cmd_interpreter_cmd_list_t);
@@ -156,8 +158,6 @@ static int do_send(void *obj, int argc, char *argv[]) {
   return 0;
 }
 
-
-
 static int do_retrieve(void *obj, int argc, char *argv[]) {
   context_t *context = (context_t *)obj;
   unsigned int num_msgs;
@@ -177,16 +177,14 @@ static int do_retrieve(void *obj, int argc, char *argv[]) {
   } else
     num_msgs = 1;
 
-  while(num_msgs > 0 && !empty_buffer)
-  {
-     empty_buffer = vscp_buffer_pop(context->rx_buffer, &msg);
-     if(!empty_buffer)
-       {
-          n = print_vscp(&msg, buf, sizeof(buf));
-          writen(context->tcpfd, buf, n);
-       }
-     num_msgs--;
- }
+  while (num_msgs > 0 && !empty_buffer) {
+    empty_buffer = vscp_buffer_pop(context->rx_buffer, &msg);
+    if (!empty_buffer) {
+      n = print_vscp(&msg, buf, sizeof(buf));
+      writen(context->tcpfd, buf, n);
+    }
+    num_msgs--;
+  }
 
   if (empty_buffer)
     status_reply(context->tcpfd, 1, "No event(s) available");
@@ -197,14 +195,24 @@ static int do_retrieve(void *obj, int argc, char *argv[]) {
 }
 
 static int do_checkdata(void *obj, int argc, char *argv[]) {
-   context_t *context = (context_t *)obj;
-   char buf[20];
-   int n;
-   if (argc != 1) {
-     return CMD_WRONG_ARGUMENT_COUNT;
-   }
-   n = snprintf(buf, 20, "%u \r\n", vscp_buffer_used(context->rx_buffer));
-   writen(context->tcpfd, buf, n);
-   status_reply(context->tcpfd, 0, NULL);
-   return 0;
+  context_t *context = (context_t *)obj;
+  char buf[20];
+  int n;
+  if (argc != 1) {
+    return CMD_WRONG_ARGUMENT_COUNT;
+  }
+  n = snprintf(buf, 20, "%u \r\n", vscp_buffer_used(context->rx_buffer));
+  writen(context->tcpfd, buf, n);
+  status_reply(context->tcpfd, 0, NULL);
+  return 0;
+}
+
+static int do_clearall(void *obj, int argc, char *argv[]) {
+  context_t *context = (context_t *)obj;
+  if (argc != 1) {
+    return CMD_WRONG_ARGUMENT_COUNT;
+  }
+  vscp_buffer_flush(context->rx_buffer);
+  status_reply(context->tcpfd, 0, "All events cleared.");
+  return 0;
 }
