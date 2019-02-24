@@ -4,11 +4,6 @@
 #include <stdio.h>
 #include <string.h>
 
-typedef struct {
-  int argc;
-  char **argv;
-} command_history_t;
-
 typedef struct cmd_interpreter_ctx {
   char *linebuffer;
   char *linebuffer_work;
@@ -66,6 +61,8 @@ void *cmd_interpreter_free(cmd_interpreter_ctx_t *ctx) {
   assert(ctx != NULL);
   free(ctx->argv);
   free(ctx->delimiters);
+  free(ctx->linebuffer_work);
+  free(ctx->linebuffer_history);
   free(ctx->linebuffer);
   free(ctx);
   return NULL;
