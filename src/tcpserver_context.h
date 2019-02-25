@@ -20,6 +20,10 @@ typedef struct {
   vscp_guid_t guid;
   vscp_buffer_ctx_t * rx_buffer;
   struct timespec last_keepalive;
+  unsigned int stat_rx_data;
+  unsigned int stat_rx_frame;
+  unsigned int stat_tx_data;
+  unsigned int stat_tx_frame;
 } context_t;
 
 #endif /* _TCPSERVER_CONTEXT_H_ */

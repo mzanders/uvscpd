@@ -35,6 +35,7 @@ static int do_getguid(void *obj, int argc, char *argv[]);
 static int do_setguid(void *obj, int argc, char *argv[]);
 static int do_wcyd(void *obj, int argc, char *argv[]);
 static int do_version(void *obj, int argc, char *argv[]);
+static int do_stat(void *obj, int argc, char *argv[]);
 
 const cmd_interpreter_cmd_list_t command_descr[] = {
     {"+", do_repeat},          {"noop", do_noop},
@@ -48,7 +49,7 @@ const cmd_interpreter_cmd_list_t command_descr[] = {
     {"getguid", do_getguid},   {"sgid", do_setguid},
     {"setguid", do_setguid},   {"wcyd", do_wcyd},
     {"whatcanyoudo", do_wcyd}, {"vers", do_version},
-    {"version", do_version}};
+    {"version", do_version},   {"stat", do_stat}};
 
 const int command_descr_num =
     sizeof(command_descr) / sizeof(cmd_interpreter_cmd_list_t);
@@ -161,6 +162,8 @@ static int do_send(void *obj, int argc, char *argv[]) {
     return 0;
   }
   vscp_to_can(&msg, &tx);
+  context->stat_tx_data += 4 + tx.can_dlc;
+  context->stat_tx_frame++;
   if (write(context->can_socket, &tx, sizeof(struct can_frame)) !=
       sizeof(struct can_frame)) {
     status_reply(context->tcpfd, 1, "problem when writing to CAN socket");
@@ -318,6 +321,20 @@ static int do_version(void *obj, int argc, char *argv[]) {
   char string[20];
   snprintf(string, sizeof(string), "%s,%s,%s,%s\r\n", VERSION_MAJOR,
            VERSION_MINOR, VERSION_SUBMINOR, VERSION_BUILD);
+  writen(context->tcpfd, string, strlen(string));
+  status_reply(context->tcpfd, 0, NULL);
+  return 0;
+}
+
+static int do_stat(void *obj, int argc, char *argv[]) {
+  context_t *context = (context_t *)obj;
+  if (argc != 1) {
+    return CMD_WRONG_ARGUMENT_COUNT;
+  }
+  char string[100];
+  snprintf(string, sizeof(string), "0,0,0,%u,%u,%u,%u\r\n",
+           context->stat_rx_data, context->stat_rx_frame,
+           context->stat_tx_data, context->stat_tx_frame);
   writen(context->tcpfd, string, strlen(string));
   status_reply(context->tcpfd, 0, NULL);
   return 0;

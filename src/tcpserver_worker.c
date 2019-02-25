@@ -19,9 +19,9 @@
 #include "tcpserver_commands.h"
 #include "tcpserver_context.h"
 #include "tcpserver_worker.h"
+#include "version.h"
 #include "vscp.h"
 #include "vscp_buffer.h"
-#include "version.h"
 
 /* helper functions */
 ssize_t writen(int fd, const void *vptr, size_t n);
@@ -58,15 +58,10 @@ void tcpserver_work(int connfd, const char *can_bus) {
   ssize_t n;
   char buf[120];
   context_t context;
-  char *welcome_message = "uvscpd V"
-                          VERSION_MAJOR
-                          "."
-                          VERSION_MINOR
-                          "."
-                          VERSION_SUBMINOR
-                          "\n\r"
-                          "Copyright (c) 2018, Maarten Zanders "
-                          "<maarten.zanders@gmail.com>\n\r";
+  char *welcome_message =
+      "uvscpd V" VERSION_MAJOR "." VERSION_MINOR "." VERSION_SUBMINOR "\n\r"
+      "Copyright (c) 2018, Maarten Zanders "
+      "<maarten.zanders@gmail.com>\n\r";
   struct sockaddr_can addr;
   struct ifreq ifr;
   struct can_frame frame;
@@ -86,6 +81,10 @@ void tcpserver_work(int connfd, const char *can_bus) {
   context.cmd_interpreter = cmd_interpreter_ctx_create(
       command_descr, command_descr_num, max_argc, 1, max_line_length, " ");
   context.rx_buffer = vscp_buffer_ctx_create(100);
+  context.stat_rx_data = 0;
+  context.stat_rx_frame = 0;
+  context.stat_tx_data = 0;
+  context.stat_tx_frame = 0;
   pthread_cleanup_push(tcpserver_work_cleanup, &context);
 
   writen(context.tcpfd, welcome_message, strlen(welcome_message));
@@ -149,6 +148,8 @@ void tcpserver_work(int connfd, const char *can_bus) {
           struct timeval tv;
           ioctl(context.can_socket, SIOCGSTAMP, &tv);
           if (!can_to_vscp(&frame, &tv, &msg, &(context.guid))) {
+            context.stat_rx_data += frame.can_dlc + 4;
+            context.stat_rx_frame++;
             if (context.mode == loop) {
               n = print_vscp(&msg, buf, sizeof(buf));
               writen(context.tcpfd, buf, n);
@@ -161,7 +162,7 @@ void tcpserver_work(int connfd, const char *can_bus) {
       if (poll_fd[1].revents & (POLLERR | POLLHUP | POLLNVAL)) {
         status_reply(context.tcpfd, 1, "CAN Disconnected - bye!");
         context.stop_thread = 1;
-     }
+      }
     }
     /* POLL TIMEOUT */
     else if (poll_rv == 0) {
