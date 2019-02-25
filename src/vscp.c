@@ -6,6 +6,9 @@
 //          0    1      2   3     4         5       6     7     8     9
 // parses "head,class,type,obid,datetime,timestamp,GUID,data1,data2,data3.."
 // datetime YYYY-MM-DDTHH:MM:DD
+// send
+// 0,30,11,0,0000-00-00t16:00:00z,0,00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00,0xff,0x00,0xaa,0x55
+
 int vscp_parse_msg(const char *input, vscp_msg_t *msg) {
   const char *ptr = input;
   char *temp;
@@ -31,8 +34,13 @@ int vscp_parse_msg(const char *input, vscp_msg_t *msg) {
     switch (field) {
     case 0 ... 2:
     case 7 ... 14:
-      if (sscanf(temp, "%u%c", &value, &guard) != 1)
-        return -1;
+      if (temp[0] == '0' && temp[1] == 'x') {
+        if (sscanf(temp, "%X%c", &value, &guard) != 1)
+          return -1;
+      } else {
+        if (sscanf(temp, "%u%c", &value, &guard) != 1)
+          return -1;
+      }
       break;
     }
 
