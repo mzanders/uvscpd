@@ -32,18 +32,20 @@ static int do_checkdata(void *obj, int argc, char *argv[]);
 static int do_clearall(void *obj, int argc, char *argv[]);
 static int do_getguid(void *obj, int argc, char *argv[]);
 static int do_setguid(void *obj, int argc, char *argv[]);
+static int do_wcyd(void *obj, int argc, char *argv[]);
 
 const cmd_interpreter_cmd_list_t command_descr[] = {
-    {"+", do_repeat},        {"noop", do_noop},
-    {"quit", do_quit},       {"test", do_test},
-    {"user", do_user},       {"pass", do_password},
-    {"restart", do_restart}, {"shutdown", do_restart},
-    {"send", do_send},       {"retr", do_retrieve},
-    {"rcvloop", do_rcvloop}, {"quitloop", do_quitloop},
-    {"cdata", do_checkdata}, {"checkdata", do_checkdata},
-    {"clra", do_clearall},   {"ggid", do_getguid},
-    {"getguid", do_getguid}, {"sgid", do_setguid},
-    {"setguid", do_setguid}};
+    {"+", do_repeat},          {"noop", do_noop},
+    {"quit", do_quit},         {"test", do_test},
+    {"user", do_user},         {"pass", do_password},
+    {"restart", do_restart},   {"shutdown", do_restart},
+    {"send", do_send},         {"retr", do_retrieve},
+    {"rcvloop", do_rcvloop},   {"quitloop", do_quitloop},
+    {"cdata", do_checkdata},   {"checkdata", do_checkdata},
+    {"clra", do_clearall},     {"ggid", do_getguid},
+    {"getguid", do_getguid},   {"sgid", do_setguid},
+    {"setguid", do_setguid},   {"wcyd", do_wcyd},
+    {"whatcanyoudo", do_wcyd}};
 
 const int command_descr_num =
     sizeof(command_descr) / sizeof(cmd_interpreter_cmd_list_t);
@@ -292,4 +294,14 @@ static int do_setguid(void *obj, int argc, char *argv[]) {
     status_reply(context->tcpfd, 0, NULL);
   }
   return 0;
+}
+
+static int do_wcyd(void *obj, int argc, char *argv[]) {
+  context_t *context = (context_t *)obj;
+  if (argc != 1) {
+    return CMD_WRONG_ARGUMENT_COUNT;
+  }
+  const char string[] = "00-00-00-00-00-00-80-28\r\n";
+  writen(context->tcpfd, string, strlen(string));
+  status_reply(context->tcpfd, 0, NULL);
 }
