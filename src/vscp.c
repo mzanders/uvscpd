@@ -13,7 +13,6 @@ int vscp_parse_msg(const char *input, vscp_msg_t *msg) {
   int field = 0;
 
   msg->data_length = 0;
-  msg->origin = 0;
 
   /* we're not parsing these values - lazy */
   msg->hw_timestamp = 0;
@@ -87,14 +86,15 @@ int vscp_parse_msg(const char *input, vscp_msg_t *msg) {
 void vscp_to_can(const vscp_msg_t *msg, struct can_frame *frame) {
   int i;
   frame->can_id = CAN_EFF_FLAG | ((msg->head & 0xF0) << 21) | msg->class << 16 |
-                  msg->type << 8 | msg->origin;
+                  msg->type << 8;
   frame->can_dlc = msg->data_length;
   for (i = 0; i < msg->data_length; i++)
     frame->data[i] = msg->data[i];
 }
 
 int can_to_vscp(const struct can_frame *frame,
-                const struct timeval *hw_timestamp, vscp_msg_t *msg) {
+                const struct timeval *hw_timestamp, vscp_msg_t *msg,
+                vscp_guid_t *guid) {
   int i;
   if ((frame->can_id & CAN_EFF_FLAG) == 0) {
     return -1;
@@ -108,7 +108,8 @@ int can_to_vscp(const struct can_frame *frame,
   msg->head = (uint8_t)((frame->can_id & 0x1E000000U) >> 21);
   msg->class = (uint16_t)((frame->can_id & 0x01FF0000U) >> 16);
   msg->type = (uint8_t)((frame->can_id & 0x0000FF00U) >> 8);
-  msg->origin = (uint8_t)((frame->can_id & 0x000000FFU));
+  msg->guid = *guid;
+  msg->guid.guid[15] = (uint8_t)((frame->can_id & 0x000000FFU));
   msg->data_length = frame->can_dlc;
   msg->timestamp = time(NULL);
   msg->hw_timestamp = (uint32_t)(hw_timestamp->tv_usec);
@@ -123,6 +124,7 @@ int can_to_vscp(const struct can_frame *frame,
 int print_vscp(const vscp_msg_t *msg, char *buffer, size_t buffer_size) {
   int i;
   char timebuffer[32];
+  char guidbuffer[56];
 
   struct tm *tmp;
   tmp = gmtime(&(msg->timestamp));
@@ -132,9 +134,10 @@ int print_vscp(const vscp_msg_t *msg, char *buffer, size_t buffer_size) {
   else
     snprintf(timebuffer, 32, "");
 
-  snprintf(buffer, buffer_size, "%u,%u,%u,0,%s,%u,%s%u,", msg->head,
-           msg->class, msg->type, timebuffer, msg->hw_timestamp,
-           "GUID:", msg->origin);
+  vscp_print_guid(guidbuffer, sizeof(guidbuffer), &(msg->guid));
+
+  snprintf(buffer, buffer_size, "%u,%u,%u,0,%s,%u,%s,", msg->head, msg->class,
+           msg->type, timebuffer, msg->hw_timestamp, guidbuffer);
 
   for (i = 0; (i < msg->data_length) && (i < 8); i++) {
     char temp[8];
@@ -145,4 +148,64 @@ int print_vscp(const vscp_msg_t *msg, char *buffer, size_t buffer_size) {
   strncat(buffer, "\n\r", buffer_size);
 
   return strlen(buffer);
+}
+
+// Parses 00:11:22:33:44:55:66:77:88:99:AA:BB:CC:DD:EE:FF like strings and
+// checks for errors
+// Individual octets have to be written in HEX and can be single or double char
+int vscp_strtoguid(const char *input, vscp_guid_t *guid) {
+  const char *ptr = input;
+  char temp[3];
+  vscp_guid_t local_guid;
+  unsigned int value;
+  int field = 0;
+
+  if (input == NULL)
+    return -1;
+
+  while (*ptr != 0) {
+    const char *seek = ptr;
+    char guard;
+
+    if (field > 15)
+      return -1;
+
+    while (*seek != ':' && *seek != 0)
+      seek++;
+
+    if ((seek - ptr) > 2)
+      return -1;
+
+    strncpy(temp, ptr, seek - ptr); /* no null terminator is copied */
+    temp[seek - ptr] = 0;           /* so we do it! */
+
+    if (sscanf(temp, "%X%c", &value, &guard) != 1)
+      return -1;
+
+    /* not really possible with only 2 chars but hey.. */
+    if (value > UINT8_MAX)
+      return -1;
+
+    local_guid.guid[field] = (uint8_t)value;
+
+    ptr = seek;
+    if (*ptr != 0)
+      ptr++;
+    field++;
+  }
+  if (*ptr != 0 || field != 16)
+    return -1;
+  else {
+    *guid = local_guid;
+    return 0;
+  }
+}
+
+int vscp_print_guid(char *buffer, size_t buffer_size, const vscp_guid_t *guid) {
+  return snprintf(
+      buffer, buffer_size, "%X:%X:%X:%X:%X:%X:%X:%X:%X:%X:%X:%X:%X:%X:%X:%X",
+      guid->guid[0], guid->guid[1], guid->guid[2], guid->guid[3], guid->guid[4],
+      guid->guid[5], guid->guid[6], guid->guid[7], guid->guid[8], guid->guid[9],
+      guid->guid[10], guid->guid[11], guid->guid[12], guid->guid[13],
+      guid->guid[14], guid->guid[15]);
 }

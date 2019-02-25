@@ -14,6 +14,7 @@
 #include "controller.h"
 #include "tcpserver_commands.h"
 #include "tcpserver_worker.h"
+#include "vscp.h"
 
 #define TCPSERVER_PORT 8598
 
@@ -24,6 +25,7 @@ sig_atomic_t gsigterm_received = 0;
 sig_atomic_t gsighup_received = 0;
 sig_atomic_t gsigint_received = 0;
 int gDaemonize = 1;
+vscp_guid_t gGuid;
 
 void signal_handler(int signal_number) {
   switch (signal_number) {
@@ -48,19 +50,24 @@ int main(int argc, char *argv[]) {
   int longindex;
   pid_t pid, sid;
   char *endptr;
+  int i;
 
   uint32_t ip_addr = 0; /* any address...*/
   uint16_t port = TCPSERVER_PORT;
   char *can_bus = "can0";
 
-  const char *const short_options = "hvsUP";
+  for (i = 0; i < 16; i++) {
+    gGuid.guid[i] = 0;
+  }
+
+  const char *const short_options = "hvsU:P:c:i:p:g:";
   const struct option long_options[] = {
       // name, has_arg, flag, val
       {"help", 0, NULL, 'h'},      {"version", 0, NULL, 'v'},
       {"stay", 0, &gDaemonize, 0}, {"user", 1, NULL, 'U'},
       {"password", 1, NULL, 'P'},  {"canbus", 1, NULL, 'c'},
       {"ip", 1, NULL, 'i'},        {"port", 1, NULL, 'p'},
-      {NULL, 0, NULL, 0}};
+      {"guid", 1, NULL, 'g'},      {NULL, 0, NULL, 0}};
   struct sigaction sa;
 
   while ((next_option = getopt_long(argc, argv, short_options, long_options,
@@ -104,6 +111,13 @@ int main(int argc, char *argv[]) {
       if (inet_pton(AF_INET, optarg, &ip_addr) != 1) {
         fprintf(stderr, "invalid ip address\n");
         exit(-1);
+      }
+      break;
+
+    case 'g':
+      if (vscp_strtoguid(optarg, &gGuid)) {
+         fprintf(stderr, "invalid guid\n");
+         exit(-1);
       }
       break;
 

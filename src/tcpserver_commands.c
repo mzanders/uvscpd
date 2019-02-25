@@ -30,6 +30,8 @@ static int do_rcvloop(void *obj, int argc, char *argv[]);
 static int do_quitloop(void *obj, int argc, char *argv[]);
 static int do_checkdata(void *obj, int argc, char *argv[]);
 static int do_clearall(void *obj, int argc, char *argv[]);
+static int do_getguid(void *obj, int argc, char *argv[]);
+static int do_setguid(void *obj, int argc, char *argv[]);
 
 const cmd_interpreter_cmd_list_t command_descr[] = {
     {"+", do_repeat},        {"noop", do_noop},
@@ -39,7 +41,9 @@ const cmd_interpreter_cmd_list_t command_descr[] = {
     {"send", do_send},       {"retr", do_retrieve},
     {"rcvloop", do_rcvloop}, {"quitloop", do_quitloop},
     {"cdata", do_checkdata}, {"checkdata", do_checkdata},
-    {"clra", do_clearall}};
+    {"clra", do_clearall},   {"ggid", do_getguid},
+    {"getguid", do_getguid}, {"sgid", do_setguid},
+    {"setguid", do_setguid}};
 
 const int command_descr_num =
     sizeof(command_descr) / sizeof(cmd_interpreter_cmd_list_t);
@@ -251,5 +255,41 @@ static int do_clearall(void *obj, int argc, char *argv[]) {
   }
   vscp_buffer_flush(context->rx_buffer);
   status_reply(context->tcpfd, 0, "All events cleared.");
+  return 0;
+}
+
+static int do_getguid(void *obj, int argc, char *argv[]) {
+  context_t *context = (context_t *)obj;
+  char buf[56];
+  int n;
+  if (argc != 1) {
+    return CMD_WRONG_ARGUMENT_COUNT;
+  }
+  n = vscp_print_guid(buf, sizeof(buf), &(context->guid));
+  if (n >= sizeof(buf) - 2) {
+    status_reply(context->tcpfd, 1, "Buffer overflow");
+    return 0;
+  }
+  buf[n] = '\r';
+  buf[n + 1] = '\n';
+  writen(context->tcpfd, buf, n + 2);
+  status_reply(context->tcpfd, 0, NULL);
+  return 0;
+}
+
+static int do_setguid(void *obj, int argc, char *argv[]) {
+  context_t *context = (context_t *)obj;
+  vscp_guid_t guid;
+
+  if (argc != 2) {
+    return CMD_WRONG_ARGUMENT_COUNT;
+  }
+
+  if (vscp_strtoguid(argv[1], &guid)) {
+    status_reply(context->tcpfd, 1, "Invalid GUID");
+  } else {
+    context->guid = guid;
+    status_reply(context->tcpfd, 0, NULL);
+  }
   return 0;
 }

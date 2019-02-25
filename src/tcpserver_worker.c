@@ -30,6 +30,8 @@ void tcpserver_work_cleanup(void *context);
 int status_reply(int fd, int error, char *msg);
 int nbytes;
 
+extern vscp_guid_t gGuid;
+
 typedef struct {
   char *command;
   char *long_command;
@@ -72,6 +74,7 @@ void tcpserver_work(int connfd, const char *can_bus) {
   context.mode = normal;
   context.can_socket = socket(PF_CAN, SOCK_RAW, CAN_RAW);
   context.command_buffer_wp = 0;
+  context.guid = gGuid; /* initialize to default guid provided externally */
   context.cmd_interpreter = cmd_interpreter_ctx_create(
       command_descr, command_descr_num, max_argc, 1, max_line_length, " ");
   context.rx_buffer = vscp_buffer_ctx_create(100);
@@ -137,7 +140,7 @@ void tcpserver_work(int connfd, const char *can_bus) {
           vscp_msg_t msg;
           struct timeval tv;
           ioctl(context.can_socket, SIOCGSTAMP, &tv);
-          if (!can_to_vscp(&frame, &tv, &msg)) {
+          if (!can_to_vscp(&frame, &tv, &msg, &(context.guid))) {
             if (context.mode == loop) {
               n = print_vscp(&msg, buf, sizeof(buf));
               writen(context.tcpfd, buf, n);

@@ -17,6 +17,7 @@ typedef struct {
   cmd_interpreter_ctx_t *cmd_interpreter;
   int user_ok;
   int password_ok;
+  vscp_guid_t guid;
   vscp_buffer_ctx_t * rx_buffer;
   struct timespec last_keepalive;
 } context_t;
