@@ -15,6 +15,7 @@
 #include "tcpserver_commands.h"
 #include "tcpserver_worker.h"
 #include "vscp.h"
+#include "version.h"
 
 #define TCPSERVER_PORT 8598
 
@@ -171,8 +172,8 @@ int main(int argc, char *argv[]) {
 ///////////////////////////////////////////////////////////////////////////////
 // copyleft
 void uvscpd_show_version(void) {
-  printf("uvscpd 0.1\n");
-  printf("Copyright (C) 2017 Maarten Zanders\n");
+  printf("uvscpd %s.%s.%s\n", VERSION_MAJOR, VERSION_MINOR, VERSION_SUBMINOR);
+  printf("Copyright (C) 2019 Maarten Zanders\n");
   printf("License GPLv3+: GNU GPL version 3 or later ");
   printf("<http://gnu.org/licenses/gpl.html>\n");
   printf(

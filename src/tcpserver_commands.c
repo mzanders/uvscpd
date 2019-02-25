@@ -10,6 +10,7 @@
 #include "tcpserver_context.h"
 #include "tcpserver_worker.h"
 #include "unistd.h"
+#include "version.h"
 #include "vscp.h"
 #include "vscp_buffer.h"
 
@@ -33,6 +34,7 @@ static int do_clearall(void *obj, int argc, char *argv[]);
 static int do_getguid(void *obj, int argc, char *argv[]);
 static int do_setguid(void *obj, int argc, char *argv[]);
 static int do_wcyd(void *obj, int argc, char *argv[]);
+static int do_version(void *obj, int argc, char *argv[]);
 
 const cmd_interpreter_cmd_list_t command_descr[] = {
     {"+", do_repeat},          {"noop", do_noop},
@@ -45,7 +47,8 @@ const cmd_interpreter_cmd_list_t command_descr[] = {
     {"clra", do_clearall},     {"ggid", do_getguid},
     {"getguid", do_getguid},   {"sgid", do_setguid},
     {"setguid", do_setguid},   {"wcyd", do_wcyd},
-    {"whatcanyoudo", do_wcyd}};
+    {"whatcanyoudo", do_wcyd}, {"vers", do_version},
+    {"version", do_version}};
 
 const int command_descr_num =
     sizeof(command_descr) / sizeof(cmd_interpreter_cmd_list_t);
@@ -304,4 +307,18 @@ static int do_wcyd(void *obj, int argc, char *argv[]) {
   const char string[] = "00-00-00-00-00-00-80-28\r\n";
   writen(context->tcpfd, string, strlen(string));
   status_reply(context->tcpfd, 0, NULL);
+  return 0;
+}
+
+static int do_version(void *obj, int argc, char *argv[]) {
+  context_t *context = (context_t *)obj;
+  if (argc != 1) {
+    return CMD_WRONG_ARGUMENT_COUNT;
+  }
+  char string[20];
+  snprintf(string, sizeof(string), "%s,%s,%s,%s\r\n", VERSION_MAJOR,
+           VERSION_MINOR, VERSION_SUBMINOR, VERSION_BUILD);
+  writen(context->tcpfd, string, strlen(string));
+  status_reply(context->tcpfd, 0, NULL);
+  return 0;
 }

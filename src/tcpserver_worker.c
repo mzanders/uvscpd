@@ -21,6 +21,7 @@
 #include "tcpserver_worker.h"
 #include "vscp.h"
 #include "vscp_buffer.h"
+#include "version.h"
 
 /* helper functions */
 ssize_t writen(int fd, const void *vptr, size_t n);
@@ -57,7 +58,14 @@ void tcpserver_work(int connfd, const char *can_bus) {
   ssize_t n;
   char buf[120];
   context_t context;
-  char *welcome_message = "uvscpd V?\n\rCopyright (c) 2018, Maarten Zanders "
+  char *welcome_message = "uvscpd V"
+                          VERSION_MAJOR
+                          "."
+                          VERSION_MINOR
+                          "."
+                          VERSION_SUBMINOR
+                          "\n\r"
+                          "Copyright (c) 2018, Maarten Zanders "
                           "<maarten.zanders@gmail.com>\n\r";
   struct sockaddr_can addr;
   struct ifreq ifr;
