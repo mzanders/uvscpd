@@ -36,6 +36,7 @@ static int do_setguid(void *obj, int argc, char *argv[]);
 static int do_wcyd(void *obj, int argc, char *argv[]);
 static int do_version(void *obj, int argc, char *argv[]);
 static int do_stat(void *obj, int argc, char *argv[]);
+static int do_chid(void *obj, int argc, char *argv[]);
 
 const cmd_interpreter_cmd_list_t command_descr[] = {
     {"+", do_repeat},          {"noop", do_noop},
@@ -49,7 +50,8 @@ const cmd_interpreter_cmd_list_t command_descr[] = {
     {"getguid", do_getguid},   {"sgid", do_setguid},
     {"setguid", do_setguid},   {"wcyd", do_wcyd},
     {"whatcanyoudo", do_wcyd}, {"vers", do_version},
-    {"version", do_version},   {"stat", do_stat}};
+    {"version", do_version},   {"stat", do_stat},
+    {"chid", do_chid}};
 
 const int command_descr_num =
     sizeof(command_descr) / sizeof(cmd_interpreter_cmd_list_t);
@@ -335,6 +337,17 @@ static int do_stat(void *obj, int argc, char *argv[]) {
   snprintf(string, sizeof(string), "0,0,0,%u,%u,%u,%u\r\n",
            context->stat_rx_data, context->stat_rx_frame,
            context->stat_tx_data, context->stat_tx_frame);
+  writen(context->tcpfd, string, strlen(string));
+  status_reply(context->tcpfd, 0, NULL);
+  return 0;
+}
+
+static int do_chid(void *obj, int argc, char *argv[]) {
+  context_t *context = (context_t *)obj;
+  if (argc != 1) {
+    return CMD_WRONG_ARGUMENT_COUNT;
+  }
+  char string[] = "0\r\n";
   writen(context->tcpfd, string, strlen(string));
   status_reply(context->tcpfd, 0, NULL);
   return 0;
