@@ -53,7 +53,7 @@ const cmd_interpreter_cmd_list_t command_descr[] = {
     {"retr", do_retrieve},
     {"rcvloop", do_rcvloop},
     {"quitloop", do_quitloop},
-    {"cdata", do_checkdata},
+    {"cdta", do_checkdata},
     {"checkdata", do_checkdata},
     {"clra", do_clearall},
     {"ggid", do_getguid},
