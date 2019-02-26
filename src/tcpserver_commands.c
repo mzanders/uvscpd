@@ -178,7 +178,7 @@ static int do_send(void *obj, int argc, char *argv[]) {
   if (argc != 2) {
     return CMD_WRONG_ARGUMENT_COUNT;
   }
-  if (vscp_parse_msg(argv[1], &msg)) {
+  if (vscp_parse_msg(argv[1], &msg, &(context->guid))) {
     status_reply(context->tcpfd, 1, "format error in CAN frame");
     return 0;
   }

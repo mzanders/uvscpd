@@ -8,12 +8,15 @@
 // datetime YYYY-MM-DDTHH:MM:DD
 // send
 // 0,30,11,0,0000-00-00t16:00:00z,0,00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00,0xff,0x00,0xaa,0x55
+// send
+// 96,512,9,0,1272-23-95T05:127:00Z,0,00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0xFF,0x00,0x03,0xD0
 
-int vscp_parse_msg(const char *input, vscp_msg_t *msg) {
+int vscp_parse_msg(const char *input, vscp_msg_t *msg, vscp_guid_t *my_guid) {
   const char *ptr = input;
   char *temp;
   unsigned int value;
   int field = 0;
+  int level2 = 0;
 
   msg->data_length = 0;
 
@@ -33,14 +36,19 @@ int vscp_parse_msg(const char *input, vscp_msg_t *msg) {
 
     switch (field) {
     case 0 ... 2:
-    case 7 ... 14:
+    case 7 ... 30:
       if (temp[0] == '0' && temp[1] == 'x') {
-        if (sscanf(temp, "%X%c", &value, &guard) != 1)
+        if (sscanf(temp, "%X%c", &value, &guard) != 1) {
           return -1;
+        }
       } else {
-        if (sscanf(temp, "%u%c", &value, &guard) != 1)
+        if (sscanf(temp, "%u%c", &value, &guard) != 1) {
           return -1;
+        }
       }
+      break;
+    case 31:
+      return -1;
       break;
     }
 
@@ -55,7 +63,10 @@ int vscp_parse_msg(const char *input, vscp_msg_t *msg) {
     case 1:
       if (value < 512)
         msg->class = (uint16_t)value;
-      else
+      else if (value < 1024) {
+        msg->class = (uint16_t)value - 512;
+        level2 = 1;
+      } else
         return -1;
       break;
 
@@ -66,16 +77,28 @@ int vscp_parse_msg(const char *input, vscp_msg_t *msg) {
         return -1;
       break;
 
-    case 7 ... 14:
-      if (value <= UINT8_MAX)
-        msg->data[field - 7] = (uint8_t)value;
-      else
-        return -1;
-      msg->data_length++;
-      break;
-
-    case 15:
-      return -1;
+    case 7 ... 30:
+      if (level2) {
+        if (field < 23 && my_guid->guid[field - 7] != value) {
+          return -1;
+        } else if (field >= 23) {
+          if (value <= UINT8_MAX)
+            msg->data[field - 23] = (uint8_t)value;
+          else {
+            return -1;
+          }
+          msg->data_length++;
+        }
+      } else {
+        if (field == 15) {
+          return -1;
+        }
+        if (value <= UINT8_MAX)
+          msg->data[field - 7] = (uint8_t)value;
+        else
+          return -1;
+        msg->data_length++;
+      }
       break;
     }
 
