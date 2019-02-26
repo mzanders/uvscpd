@@ -41,21 +41,36 @@ static int do_setfilter(void *obj, int argc, char *argv[]);
 static int do_interface(void *obj, int argc, char *argv[]);
 
 const cmd_interpreter_cmd_list_t command_descr[] = {
-    {"+", do_repeat},           {"noop", do_noop},
-    {"quit", do_quit},          {"test", do_test},
-    {"user", do_user},          {"pass", do_password},
-    {"restart", do_restart},    {"shutdown", do_restart},
-    {"send", do_send},          {"retr", do_retrieve},
-    {"rcvloop", do_rcvloop},    {"quitloop", do_quitloop},
-    {"cdata", do_checkdata},    {"checkdata", do_checkdata},
-    {"clra", do_clearall},      {"ggid", do_getguid},
-    {"getguid", do_getguid},    {"sgid", do_setguid},
-    {"setguid", do_setguid},    {"wcyd", do_wcyd},
-    {"whatcanyoudo", do_wcyd},  {"vers", do_version},
-    {"version", do_version},    {"stat", do_stat},
-    {"chid", do_chid},          {"sflt", do_setfilter},
-    {"setfilter", do_setfilter},{"smsk", do_setfilter},
-    {"setmask", do_setfilter},  {"interface", do_interface}};
+    {"+", do_repeat},
+    {"noop", do_noop},
+    {"quit", do_quit},
+    {"test", do_test},
+    {"user", do_user},
+    {"pass", do_password},
+    {"restart", do_restart},
+    {"shutdown", do_restart},
+    {"send", do_send},
+    {"retr", do_retrieve},
+    {"rcvloop", do_rcvloop},
+    {"quitloop", do_quitloop},
+    {"cdata", do_checkdata},
+    {"checkdata", do_checkdata},
+    {"clra", do_clearall},
+    {"ggid", do_getguid},
+    {"getguid", do_getguid},
+    {"sgid", do_setguid},
+    {"setguid", do_setguid},
+    {"wcyd", do_wcyd},
+    {"whatcanyoudo", do_wcyd},
+    {"vers", do_version},
+    {"version", do_version},
+    {"stat", do_stat},
+    {"chid", do_chid},
+    {"sflt", do_setfilter},
+    {"setfilter", do_setfilter},
+    {"smsk", do_setfilter},
+    {"setmask", do_setfilter},
+    {"interface", do_interface}};
 
 const int command_descr_num =
     sizeof(command_descr) / sizeof(cmd_interpreter_cmd_list_t);
@@ -339,8 +354,8 @@ static int do_stat(void *obj, int argc, char *argv[]) {
   }
   char string[100];
   snprintf(string, sizeof(string), "0,0,0,%u,%u,%u,%u\r\n",
-           context->stat_rx_data, context->stat_rx_frame,
-           context->stat_tx_data, context->stat_tx_frame);
+           context->stat_rx_data, context->stat_rx_frame, context->stat_tx_data,
+           context->stat_tx_frame);
   writen(context->tcpfd, string, strlen(string));
   status_reply(context->tcpfd, 0, NULL);
   return 0;
@@ -357,28 +372,35 @@ static int do_chid(void *obj, int argc, char *argv[]) {
   return 0;
 }
 
-static int do_setfilter(void *obj, int argc, char *argv[])
-{
-   /* temporary to keep vscpworks happy */
-   context_t *context = (context_t *)obj;
-   status_reply(context->tcpfd, 0, NULL);
-   return 0;
+static int do_setfilter(void *obj, int argc, char *argv[]) {
+  /* temporary to keep vscpworks happy */
+  context_t *context = (context_t *)obj;
+  status_reply(context->tcpfd, 0, NULL);
+  return 0;
 }
 
-static int do_interface(void *obj, int argc, char *argv[])
-{
-   context_t *context = (context_t *)obj;
+static int do_interface(void *obj, int argc, char *argv[]) {
+  context_t *context = (context_t *)obj;
 
-   if(!strcmp(argv[1], "list"))
-   {
-      char string[120];
-      char guid[64];
-      vscp_print_guid(guid,64,&(context->guid));
-      sprintf(string, "0,1,%s,%s\n\r",guid, "can0");
-      writen(context->tcpfd, string, strlen(string));
-      status_reply(context->tcpfd, 0, NULL);
-      return 0;
-   }
-   return -1;
+  if (!strcmp(argv[1], "list")) {
+    char string[120];
+    char guid[64];
+    char timebuffer[64];
+    struct tm *tmp;
+    tmp = gmtime(&(context->started));
 
+    if (tmp != NULL)
+      strftime(timebuffer, sizeof(timebuffer), "%FT%H:%M:%S", tmp);
+    else
+      snprintf(timebuffer, sizeof(timebuffer), "");
+
+    vscp_print_guid(guid, 64, &(context->guid));
+
+    sprintf(string, "0,1,%s,%s|Started %s\n\r", guid, context->can_bus,
+            timebuffer);
+    writen(context->tcpfd, string, strlen(string));
+    status_reply(context->tcpfd, 0, NULL);
+    return 0;
+  }
+  return -1;
 }

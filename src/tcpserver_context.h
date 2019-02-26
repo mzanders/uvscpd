@@ -24,6 +24,8 @@ typedef struct {
   unsigned int stat_rx_frame;
   unsigned int stat_tx_data;
   unsigned int stat_tx_frame;
+  const char * can_bus;
+  time_t started;
 } context_t;
 
 #endif /* _TCPSERVER_CONTEXT_H_ */

@@ -54,7 +54,7 @@ int print_vscp_frame(context_t *context, const struct can_frame *frame) {
   return writen(context->tcpfd, buffer, strlen(buffer));
 }
 
-void tcpserver_work(int connfd, const char *can_bus) {
+void tcpserver_work(int connfd, const char * can_bus, time_t started){
   ssize_t n;
   char buf[120];
   context_t context;
@@ -85,6 +85,8 @@ void tcpserver_work(int connfd, const char *can_bus) {
   context.stat_rx_frame = 0;
   context.stat_tx_data = 0;
   context.stat_tx_frame = 0;
+  context.can_bus = can_bus;
+  context.started = started;
   pthread_cleanup_push(tcpserver_work_cleanup, &context);
 
   writen(context.tcpfd, welcome_message, strlen(welcome_message));

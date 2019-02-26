@@ -27,6 +27,7 @@ typedef struct {
   sem_t start_sem;
   int connfd;
   const char * can_bus;
+  time_t started;
   pthread_mutex_t connfd_lock;
 } Thread;
 
@@ -44,6 +45,7 @@ void *worker_thread(void *arg);
 void tcpserver_start(const char * can_bus, uint32_t ip_addr, uint16_t port) {
   int i;
   struct sockaddr_in servaddr;
+  time_t now = time(NULL);
 
   assert(tcpserver_running == 0);
   /* Create a socket */
@@ -77,6 +79,7 @@ void tcpserver_start(const char * can_bus, uint32_t ip_addr, uint16_t port) {
   for (i = 0; i < nthreads; i++) {
     sem_init(&(tptr[i].start_sem), 0, 0);
     tptr[i].can_bus = can_bus;
+    tptr[i].started = now;
     if (pthread_create(&tptr[i].thread_tid, NULL, &worker_thread, &(tptr[i])) !=
         0)
       NonSysError(ModuleName, "pthread_create worker");
@@ -147,7 +150,7 @@ void *worker_thread(void *arg) {
         NonSysError("TCPServer", "worker mutex unlock");
 
       if (connection != 0) {
-        tcpserver_work(connection, info->can_bus);
+        tcpserver_work(connection, info->can_bus, info->started);
 
         if (close(connection) < 0)
           SysMError("thread close FD");
