@@ -176,7 +176,6 @@ void tcpserver_stop(void) {
     NonSysError(ModuleName, "pthread_cancel");
   if (pthread_join(dispatch_tid, &res) < 0)
     NonSysError(ModuleName, "pthread_cancel");
-  free(res);
   if (close(listenfd) < 0)
     SysMError("Close listener");
 
@@ -189,7 +188,6 @@ void tcpserver_stop(void) {
   for (i = 0; i < nthreads; i++) {
     if (pthread_join(tptr[i].thread_tid, &res) < 0)
       NonSysError(ModuleName, "pthread_join");
-    free(res);
 
     if (tptr[i].connfd != 0) {
       if (close(tptr[i].connfd) < 0)

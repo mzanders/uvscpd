@@ -70,6 +70,8 @@ void tcpserver_work(int connfd, const char * can_bus, time_t started){
   const int max_argc = 10;
   const int max_line_length = 320;
 
+  memset(&addr, 0, sizeof(struct sockaddr_can));
+
   context.user_ok = (cmd_user == NULL);
   context.password_ok = (cmd_password == NULL);
   context.stop_thread = 0;
