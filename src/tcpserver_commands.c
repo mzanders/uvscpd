@@ -113,7 +113,6 @@ int do_test(void *obj, int argc, char *argv[]) {
 
 static int do_repeat(void *obj, int argc, char *argv[]) {
   context_t *context = (context_t *)obj;
-  cmd_interpreter_disable_history(context->cmd_interpreter);
   if (argc == 1) {
     return cmd_interpreter_repeat(context->cmd_interpreter, obj);
   }

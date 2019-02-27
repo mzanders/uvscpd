@@ -102,11 +102,8 @@ static int cmd_interpreter_process_line(cmd_interpreter_ctx_t *ctx, char *line,
 }
 
 int cmd_interpreter_repeat(cmd_interpreter_ctx_t *ctx, void *obj) {
-  return cmd_interpreter_process_line(ctx, ctx->linebuffer_history, obj);
-}
-
-void cmd_interpreter_disable_history(cmd_interpreter_ctx_t *ctx) {
   ctx->history_disable = 1;
+  return cmd_interpreter_process_line(ctx, ctx->linebuffer_history, obj);
 }
 
 int cmd_interpreter_process(cmd_interpreter_ctx_t *ctx, char **buffer_start,
