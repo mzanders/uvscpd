@@ -28,7 +28,7 @@ void vscp_buffer_free(vscp_buffer_ctx_t *ctx) {
   free(ctx);
 }
 
-unsigned int next(vscp_buffer_ctx_t *ctx, unsigned int current) {
+static unsigned int next(vscp_buffer_ctx_t *ctx, unsigned int current) {
   current++;
   if (current >= ctx->size)
     current = 0;
