@@ -11,7 +11,7 @@
 #include <syslog.h>
 #include <unistd.h>
 
-#include "controller.h"
+#include "tcpserver.h"
 #include "tcpserver_commands.h"
 #include "tcpserver_worker.h"
 #include "vscp.h"
@@ -25,6 +25,7 @@ void uvscpd_show_help(void);
 sig_atomic_t gsigterm_received = 0;
 sig_atomic_t gsighup_received = 0;
 sig_atomic_t gsigint_received = 0;
+
 int gDaemonize = 1;
 vscp_guid_t gGuid;
 
@@ -166,7 +167,22 @@ int main(int argc, char *argv[]) {
     dup2(0, 1);
     dup2(0, 2);
   }
-  controller(can_bus, ip_addr, port);
+
+  openlog("uvscpd : ", LOG_PID, LOG_USER);
+
+  tcpserver_start(can_bus, ip_addr, port);
+
+  while (1)
+  {
+    if (gsighup_received | gsigterm_received | gsigint_received)
+    {
+      tcpserver_stop();
+      exit(0);
+    }
+    sleep(1);
+  }
+  
+  closelog();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
