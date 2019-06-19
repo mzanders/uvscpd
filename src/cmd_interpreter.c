@@ -1,8 +1,9 @@
-#include "cmd_interpreter.h"
 #include <assert.h>
 #include <ctype.h>
 #include <stdio.h>
 #include <string.h>
+
+#include "cmd_interpreter.h"
 
 typedef struct cmd_interpreter_ctx {
   char *linebuffer;
@@ -33,32 +34,38 @@ cmd_interpreter_ctx_t *
 cmd_interpreter_ctx_create(const cmd_interpreter_cmd_list_t *cmd_list,
                            int num_commands, int max_argc, int to_lower,
                            size_t max_line_length, const char *delimiters) {
-  int i;
   assert(cmd_list != NULL);
   assert(max_line_length > 1);
   assert(delimiters != NULL);
   assert(max_argc > 0);
+
+  int i;
   for (i = 0; i < num_commands; i++) {
     assert(cmd_list[i].callback != NULL);
     assert(cmd_list[i].cmd_string != NULL);
   }
+
   cmd_interpreter_ctx_t *ctx = my_calloc(1, sizeof(cmd_interpreter_ctx_t));
-  ctx->cmd_list = cmd_list;
+
   ctx->linebuffer = my_calloc(1, max_line_length + 1);
-  ctx->linebuffer_history = my_calloc(1, max_line_length + 1);
   ctx->linebuffer_work = my_calloc(1, max_line_length + 1);
-  ctx->num_commands = num_commands;
-  ctx->delimiters = strdup(delimiters);
-  ctx->max_line_length = max_line_length;
+  ctx->linebuffer_history = my_calloc(1, max_line_length + 1);
   ctx->to_lower = to_lower;
+  ctx->num_commands = num_commands;
+  ctx->max_line_length = max_line_length;
+  ctx->delimiters = strdup(delimiters);
   ctx->writepointer = ctx->linebuffer;
+  ctx->cmd_list = cmd_list;
   ctx->max_argc = max_argc;
   ctx->argv = my_calloc(max_argc, sizeof(char *));
+  ctx->history_disable = 0;
+
   return ctx;
 }
 
 void *cmd_interpreter_free(cmd_interpreter_ctx_t *ctx) {
   assert(ctx != NULL);
+
   free(ctx->argv);
   free(ctx->delimiters);
   free(ctx->linebuffer_work);
@@ -70,6 +77,9 @@ void *cmd_interpreter_free(cmd_interpreter_ctx_t *ctx) {
 
 static int cmd_interpreter_process_line(cmd_interpreter_ctx_t *ctx, char *line,
                                         void *obj) {
+  assert(ctx != NULL);
+  assert(line != NULL);
+
   char *saveptr;
   int rval;
   int i;
@@ -77,6 +87,7 @@ static int cmd_interpreter_process_line(cmd_interpreter_ctx_t *ctx, char *line,
   strncpy(ctx->linebuffer_work, line, ctx->max_line_length);
 
   ctx->argv[0] = strtok_r(ctx->linebuffer_work, ctx->delimiters, &saveptr);
+
   if (ctx->argv[0] == NULL) {
     rval = CMD_INTERPRETER_EMPTY_INPUT;
   } else {
@@ -102,15 +113,21 @@ static int cmd_interpreter_process_line(cmd_interpreter_ctx_t *ctx, char *line,
 }
 
 int cmd_interpreter_repeat(cmd_interpreter_ctx_t *ctx, void *obj) {
+  assert(ctx != NULL);
   ctx->history_disable = 1;
   return cmd_interpreter_process_line(ctx, ctx->linebuffer_history, obj);
 }
 
 int cmd_interpreter_process(cmd_interpreter_ctx_t *ctx, char **buffer_start,
                             size_t buffer_len, void *obj) {
-  int i;
+  assert(ctx != NULL);
+  assert(buffer_start != NULL);
+
   if (buffer_len == 0)
     return CMD_INTERPRETER_NO_MORE_DATA; /* nothing to do */
+
+  int i;
+
   /* copy up to the newline into our own buffer */
   int got_line = 0;
   for (i = 0; i < buffer_len; i++) {

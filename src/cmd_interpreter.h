@@ -5,7 +5,7 @@
 
 typedef struct cmd_interpreter_ctx cmd_interpreter_ctx_t;
 
-/* return 0 when OK, return -1 upon error */
+// callback prototype return 0 when OK, return -1 upon error
 typedef int (*cmd_interpreter_callback_t)(void *object, int argc, char * argv[]);
 
 typedef struct {
@@ -13,6 +13,7 @@ typedef struct {
   cmd_interpreter_callback_t callback;
 } cmd_interpreter_cmd_list_t;
 
+// create a context for the command interpreter to work in
 cmd_interpreter_ctx_t* cmd_interpreter_ctx_create(
     const cmd_interpreter_cmd_list_t* cmd_list,  // command list structure
     int num_commands,                            // number of elements in above
@@ -22,8 +23,10 @@ cmd_interpreter_ctx_t* cmd_interpreter_ctx_create(
     const char* delimiters   // list of delimiters between command & arguments
 );
 
+// destroy the command interpreter and free all memory
 void * cmd_interpreter_free(cmd_interpreter_ctx_t* ctx);
 
+// repeat the last received command
 int cmd_interpreter_repeat(cmd_interpreter_ctx_t *ctx, void *obj);
 
 // returns 0 when end of buffer reached without command
