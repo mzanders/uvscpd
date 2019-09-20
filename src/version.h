@@ -14,7 +14,12 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+#ifndef _VERSION_H_
+#define _VERSION_H_
+
 #define VERSION_MAJOR       "0"
 #define VERSION_MINOR       "1"
 #define VERSION_SUBMINOR    "0"
 #define VERSION_BUILD       "N/A"
+
+#endif /* _VERSION_H_ */
