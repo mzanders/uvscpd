@@ -1,5 +1,7 @@
-AM_CFLAGS = $PTHREAD_CFLAGS # CFLAGS applicable to all executables (products)
+AM_CFLAGS = $(PTHREAD_CFLAGS) # CFLAGS applicable to all executables (products)
 AM_CPPFLAGS = -I$(top_srcdir)/src # so that tests also find header files
+
+AM_LDFLAGS = $(PTHREAD_LIBS)
 
 # The main product
 bin_PROGRAMS = uvscpd

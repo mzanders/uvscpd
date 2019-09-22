@@ -27,7 +27,8 @@ AC_PROG_INSTALL
 # Checks for libraries.
 
 # Found libraries are automatically addded to LIBS
-AC_SEARCH_LIBS([pthread])
+#AC_SEARCH_LIBS([pthread])
+AX_PTHREAD([],[AC_MSG_ERROR([pthreads are required])])
 
 # AC_SEARCH_LIBS([g_test_init], [glib-2.0],[],[
 #                 AC_MSG_ERROR([You need to install glib-2.0 library.])
