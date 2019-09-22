@@ -159,7 +159,8 @@ int can_to_vscp(const struct can_frame *frame,
   msg->guid.guid[15] = (uint8_t)((frame->can_id & 0x000000FFU));
   msg->data_length = frame->can_dlc;
   msg->timestamp = time(NULL);
-  msg->hw_timestamp = (uint32_t)(hw_timestamp->tv_usec);
+  msg->hw_timestamp = (uint32_t)(hw_timestamp->tv_usec)
+                         + (uint32_t)(hw_timestamp->tv_sec * 1000000);
 
   for (i = 0; i < msg->data_length; i++) {
     msg->data[i] = frame->data[i];
