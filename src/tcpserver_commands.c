@@ -60,7 +60,6 @@ const cmd_interpreter_cmd_list_t command_descr[] = {
     {"+", do_repeat},
     {"noop", do_noop},
     {"quit", do_quit},
-    {"test", do_test},
     {"user", do_user},
     {"pass", do_password},
     {"restart", do_restart},
@@ -111,19 +110,6 @@ int do_quit(void *obj, int argc, char *argv[]) {
   }
   status_reply(context->tcpfd, 0, "bye");
   context->stop_thread = 1;
-  return 0;
-}
-
-int do_test(void *obj, int argc, char *argv[]) {
-  context_t *context = (context_t *)obj;
-  if (argc != 1) {
-    return CMD_WRONG_ARGUMENT_COUNT;
-  }
-  if (access_ok(context))
-    status_reply(context->tcpfd, 0, NULL);
-  else
-    status_reply(context->tcpfd, 1, "no access");
-
   return 0;
 }
 
