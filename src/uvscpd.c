@@ -26,6 +26,7 @@
 #include <sys/types.h>
 #include <syslog.h>
 #include <unistd.h>
+#include <config.h>
 
 #include "tcpserver.h"
 #include "tcpserver_commands.h"
@@ -204,7 +205,7 @@ int main(int argc, char *argv[]) {
 ///////////////////////////////////////////////////////////////////////////////
 // copyleft
 void uvscpd_show_version(void) {
-  printf("uvscpd %s.%s.%s\n", VERSION_MAJOR, VERSION_MINOR, VERSION_SUBMINOR);
+  printf(PACKAGE_STRING, "\n");
   printf("Copyright (C) 2019 Maarten Zanders\n");
   printf("License GPLv3+: GNU GPL version 3 or later ");
   printf("<http://gnu.org/licenses/gpl.html>\n");
@@ -215,6 +216,26 @@ void uvscpd_show_version(void) {
 
 ///////////////////////////////////////////////////////////////////////////////
 // help
+/* Print the usage line for the given option to the screen. */
+static void print_opt(const char *shortflag, const char *longflag, const char *desc)
+{
+	printf(" %-14s %-23s %s\n", shortflag, longflag, desc);
+}
+
 void uvscpd_show_help(void) {
-  printf("No usage information so far... sorry!\n");
+  printf("Usage: uvscpd [arguments]\n\n");
+
+  printf("Arguments:\n");
+  print_opt("-h", "--help", "show this help information");
+  print_opt("-v", "--version", "show version information");
+  print_opt("-s", "--stay", "don't daemonize");
+  print_opt("-U <usr>", "--user=<usr>", "set username to <usr>");
+  print_opt("-P <pwd>", "--password=<pwd>", "set password to <pwd> (unsafe! Check README)");
+  print_opt("-c <can>", "--canbus=<can>", "set socketcan interface to <can>, defaults to can0");
+  print_opt("-i <address>", "--ip=<address>", "bind to <address>, defaults to all interfaces");
+  print_opt("-p <N>", "--port=<N>", "set IP port number to <N>, defaults to 8598");
+  print_opt("-g <GUID>", "--guid=<GUID>", "set interface GUID to <GUID>, defaults to 00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00");
+  printf("\n");
+  printf("Report bugs to: " PACKAGE_BUGREPORT "\n");
+  printf("uvspcd home page: <https://www.zanders.be/uvscpd>\n");
 }

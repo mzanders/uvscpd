@@ -4,7 +4,7 @@
 AC_INIT([uvscpd], [1.0.0], [maarten@zanders.be])
 AC_CONFIG_SRCDIR([src/uvscpd.c])
 AM_INIT_AUTOMAKE([subdir-objects])
-AC_CONFIG_HEADERS([config.h]) # use config.h instead of passing -D in the command line
+AC_CONFIG_HEADERS([src/config.h]) # use config.h instead of passing -D in the command line
 AC_CONFIG_MACRO_DIR([m4])
 
 AC_LANG([C]) # Use C not C++

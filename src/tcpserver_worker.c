@@ -35,7 +35,7 @@
 #include "tcpserver_commands.h"
 #include "tcpserver_context.h"
 #include "tcpserver_worker.h"
-#include "version.h"
+#include "config.h"
 #include "vscp.h"
 #include "vscp_buffer.h"
 
@@ -75,9 +75,8 @@ void tcpserver_work(int connfd, const char * can_bus, time_t started){
   char buf[120];
   context_t context;
   char *welcome_message =
-      "uvscpd V" VERSION_MAJOR "." VERSION_MINOR "." VERSION_SUBMINOR "\n\r"
-      "Copyright (c) 2018, Maarten Zanders "
-      "<maarten.zanders@gmail.com>\n\r";
+      PACKAGE_STRING "\n\r"
+      PACKAGE_BUGREPORT "\n\r";
   struct sockaddr_can addr;
   struct ifreq ifr;
   struct can_frame frame;
