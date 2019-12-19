@@ -104,6 +104,8 @@ void tcpserver_work(int connfd, const char * can_bus, time_t started){
   context.stat_tx_frame = 0;
   context.can_bus = can_bus;
   context.started = started;
+  context.filter.can_id = 0x0;
+  context.filter.can_mask = 0x0;
   pthread_cleanup_push(tcpserver_work_cleanup, &context);
 
   writen(context.tcpfd, welcome_message, strlen(welcome_message));

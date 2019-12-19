@@ -19,6 +19,84 @@
 
 #include "vscp.h"
 
+// parses "priority, class, type, GUID"
+int vscp_parse_filter(const char *input, canid_t *id, vscp_guid_t *my_guid){
+  const char *ptr = input;
+  char *temp;
+  unsigned int value;
+  int field = 0;
+  vscp_guid_t guid;
+  *id = 0;
+
+  while (*ptr != 0) {
+
+    const char *seek = ptr;
+    char guard;
+
+    while (*seek != ',' && *seek != 0)
+      seek++;
+
+    temp = strndup(ptr, seek - ptr);
+
+    switch (field) {
+    case 0 ... 2:
+      if (temp[0] == '0' && temp[1] == 'x') {
+        if (sscanf(temp, "%X%c", &value, &guard) != 1) {
+          return -1;
+        }
+      } else {
+        if (sscanf(temp, "%u%c", &value, &guard) != 1) {
+          return -1;
+        }
+      }
+      break;
+    case 3:
+      if(vscp_strtoguid(temp, &guid))
+        return -1;
+      break;
+    }
+
+    switch (field) {
+    case 0:
+      if (value <= 0b111)
+        *id |= value << 26;
+      else
+        return -1;
+      break;
+
+    case 1:
+      if (value < 512)
+        *id |= value << 16;
+      else if (value < 1024)
+        *id |= (value - 512) << 16;
+      else
+        return -1;
+      break;
+
+    case 2:
+      if (value <= UINT8_MAX)
+        *id  |= (uint8_t)value << 8;
+      else
+        return -1;
+      break;
+
+    case 3:
+      *id |= guid.guid[15];
+      break;
+    }
+
+    ptr = seek;
+    if (*ptr != 0)
+      ptr++;
+    field++;
+    free(temp);
+  }
+  if (field == 4)
+    return 0;
+  else
+    return -1;
+}
+
 //          0    1      2   3     4         5       6     7     8     9
 // parses "head,class,type,obid,datetime,timestamp,GUID,data1,data2,data3.."
 // datetime YYYY-MM-DDTHH:MM:DD

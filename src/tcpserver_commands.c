@@ -54,6 +54,7 @@ static int do_version(void *obj, int argc, char *argv[]);
 static int do_stat(void *obj, int argc, char *argv[]);
 static int do_chid(void *obj, int argc, char *argv[]);
 static int do_setfilter(void *obj, int argc, char *argv[]);
+static int do_setmask(void *obj, int argc, char *argv[]);
 static int do_interface(void *obj, int argc, char *argv[]);
 
 const cmd_interpreter_cmd_list_t command_descr[] = {
@@ -83,8 +84,8 @@ const cmd_interpreter_cmd_list_t command_descr[] = {
     {"chid", do_chid},
     {"sflt", do_setfilter},
     {"setfilter", do_setfilter},
-    {"smsk", do_setfilter},
-    {"setmask", do_setfilter},
+    {"smsk", do_setmask},
+    {"setmask", do_setmask},
     {"interface", do_interface}};
 
 const int command_descr_num =
@@ -374,11 +375,42 @@ static int do_chid(void *obj, int argc, char *argv[]) {
 }
 
 static int do_setfilter(void *obj, int argc, char *argv[]) {
-  /* temporary to keep vscpworks happy */
+  canid_t filter;
   context_t *context = (context_t *)obj;
+  if (argc != 2) {
+    return CMD_WRONG_ARGUMENT_COUNT;
+  }
+  if (vscp_parse_filter(argv[1], &filter, &(context->guid))) {
+    status_reply(context->tcpfd, 1, "format error in filter frame");
+    return 0;
+  }
+  context->filter.can_id = filter;
+
+  setsockopt(context->can_socket, SOL_CAN_RAW, CAN_RAW_FILTER,
+             &(context->filter), sizeof(struct can_filter));
+  status_reply(context->tcpfd, 0, NULL);
+  return 0;
+
+}
+
+static int do_setmask(void *obj, int argc, char *argv[]) {
+  canid_t mask;
+  context_t *context = (context_t *)obj;
+  if (argc != 2) {
+    return CMD_WRONG_ARGUMENT_COUNT;
+  }
+  if (vscp_parse_filter(argv[1], &mask, &(context->guid))) {
+    status_reply(context->tcpfd, 1, "format error in mask frame");
+    return 0;
+  }
+  context->filter.can_mask = mask;
+
+  setsockopt(context->can_socket, SOL_CAN_RAW, CAN_RAW_FILTER,
+             &(context->filter), sizeof(struct can_filter));
   status_reply(context->tcpfd, 0, NULL);
   return 0;
 }
+
 
 static int do_interface(void *obj, int argc, char *argv[]) {
   context_t *context = (context_t *)obj;

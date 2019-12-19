@@ -42,6 +42,7 @@ typedef struct {
   unsigned int stat_tx_frame;
   const char * can_bus;
   time_t started;
+  struct can_filter filter;
 } context_t;
 
 #endif /* _TCPSERVER_CONTEXT_H_ */
