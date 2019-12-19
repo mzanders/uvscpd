@@ -25,10 +25,9 @@ SocketCAN documentation:
 
 ## Building & installing
 After obtaining and exctracting the distribution package, run
-'''
-./configure
-./make
-'''
+
+    ./configure
+    ./make
 
 To install the package, run './make install'.
 
@@ -37,15 +36,16 @@ uvscpd does not require any configuration file. All runtime configuration is
 entered through command line options.
 
 The options are:
-- -h, --help: show help information
-- -v, --version: show version information
-- -s, --stay: don't daemonize
-- -U <usr>, --user=<usr>: set username to <usr>
-- -P <pwd>, --password=<pwd>: set password to <pwd>
-- -c <can>, --canbus=<can>: set socketcan interface to <can>, defaults to can0
-- -i <address>, --ip=<address>: bind to <address>, defaults to all interfaces
-- -p <N>, --port=<N>: set IP port number to <N>, defaults to 8598
-- -g <GUID>, --guid=<GUID>: set interface GUID to <GUID>, defaults to all 0's
+
+    -h, --help: show help information
+    -v, --version: show version information
+    -s, --stay: don't daemonize
+    -U <usr>, --user=<usr>: set username to <usr>
+    -P <pwd>, --password=<pwd>: set password to <pwd>
+    -c <can>, --canbus=<can>: set socketcan interface to <can>, defaults to can0
+    -i <address>, --ip=<address>: bind to <address>, defaults to all interfaces
+    -p <N>, --port=<N>: set IP port number to <N>, defaults to 8598
+    -g <GUID>, --guid=<GUID>: set interface GUID to <GUID>, defaults to all 0's
 
 ## Access Control
 uvscpd provides the means to configure a username and password combination.
@@ -99,12 +99,12 @@ Further more, uvscpd does not implement the Decision Matrix (*DM*), Variables
 (*VAR*) or Tables (*TABLE*) and all associated commands.
 
 ## How it works
-I'm not so strong in the commenting department but try to make the code compact
-and readable. To guide you through the few source files, here's a bit how
+I'm not so strong in the commenting department but the code should be easy 
+to follow. To guide you through the few source files, here's a bit how
 uvscpd is setup:
 
-- *uvscpd.c*: the starting point and home of main(). This file is responsible
-for all argument parsing, showing command line info, daemonizing and handling
+- *uvscpd.c*: the starting point and home of main(). Responsible for all 
+argument parsing, showing command line info, daemonizing and handling
 signals.
 - *tcpserver.c*: manages the threads and dispatching. uvscpd is configured
 to handle up to 5 simultaneous connections. For each of those, a worker thread
