@@ -155,7 +155,11 @@ void tcpserver_work(int connfd, const char * can_bus, time_t started){
       /* handle TCP events */
       if (poll_fd[0].revents & POLLIN) {
         n = read(context.tcpfd, buf, sizeof(buf));
-        tcpserver_handle_input(&context, buf, n);
+        if(n<=0){
+          context.stop_thread = 1; /* error or closed socket */
+        } else {
+          tcpserver_handle_input(&context, buf, n);
+        }
       }
       if (poll_fd[0].revents & (POLLERR | POLLHUP | POLLNVAL)) {
         context.stop_thread = 1;
