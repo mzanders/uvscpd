@@ -40,11 +40,9 @@
 #include "vscp_buffer.h"
 
 /* helper functions */
-ssize_t writen(int fd, const void *vptr, size_t n);
 void handle_noop(context_t *context);
 void handle_quit(context_t *context);
 void tcpserver_work_cleanup(void *context);
-int status_reply(int fd, int error, char *msg);
 int nbytes;
 
 extern vscp_guid_t gGuid;
@@ -67,7 +65,7 @@ int print_vscp_frame(context_t *context, const struct can_frame *frame) {
     strcat(buffer, minibuf);
   }
   strcat(buffer, "\n\r");
-  return writen(context->tcpfd, buffer, strlen(buffer));
+  return writen(context, buffer, strlen(buffer));
 }
 
 void tcpserver_work(int connfd, const char * can_bus, time_t started){
@@ -108,12 +106,12 @@ void tcpserver_work(int connfd, const char * can_bus, time_t started){
   context.filter.can_mask = 0x0;
   pthread_cleanup_push(tcpserver_work_cleanup, &context);
 
-  writen(context.tcpfd, welcome_message, strlen(welcome_message));
+  writen(&context, welcome_message, strlen(welcome_message));
 
   strncpy(ifr.ifr_name, can_bus, IFNAMSIZ - 1);
   if (ioctl(context.can_socket, SIOCGIFINDEX, &ifr) == -1) {
     snprintf(buf, 120, "interface [%s] error: %s", can_bus, strerror(errno));
-    status_reply(context.tcpfd, 1, buf);
+    status_reply(&context, 1, buf);
     context.stop_thread = 1;
   } else {
     addr.can_family = AF_CAN;
@@ -126,11 +124,11 @@ void tcpserver_work(int connfd, const char * can_bus, time_t started){
     if (bind(context.can_socket, (struct sockaddr *)&addr, sizeof(addr)) ==
         -1) {
       snprintf(buf, 120, "error binding to CAN bus: %s", strerror(errno));
-      status_reply(context.tcpfd, 1, buf);
+      status_reply(&context, 1, buf);
       context.stop_thread = 1;
     } else {
       snprintf(buf, 120, "Success, connected to %s", can_bus);
-      status_reply(context.tcpfd, 0, buf);
+      status_reply(&context, 0, buf);
     }
   }
 
@@ -148,7 +146,7 @@ void tcpserver_work(int connfd, const char * can_bus, time_t started){
 
     if (poll_rv < 0) {
       snprintf(buf, 120, "Poll error - %s", strerror(errno));
-      status_reply(context.tcpfd, 1, buf);
+      status_reply(&context, 1, buf);
       context.stop_thread = 1;
     } else if (poll_rv > 0) {
 
@@ -177,7 +175,7 @@ void tcpserver_work(int connfd, const char * can_bus, time_t started){
             context.stat_rx_frame++;
             if (context.mode == loop) {
               n = print_vscp(&msg, buf, sizeof(buf));
-              writen(context.tcpfd, buf, n);
+              writen(&context, buf, n);
             } else {
               vscp_buffer_push(context.rx_buffer, &msg);
             }
@@ -185,7 +183,7 @@ void tcpserver_work(int connfd, const char * can_bus, time_t started){
         }
       }
       if (poll_fd[1].revents & (POLLERR | POLLHUP | POLLNVAL)) {
-        status_reply(context.tcpfd, 1, "CAN Disconnected - bye!");
+        status_reply(&context, 1, "CAN Disconnected - bye!");
         context.stop_thread = 1;
       }
     }
@@ -197,7 +195,7 @@ void tcpserver_work(int connfd, const char * can_bus, time_t started){
         /* this is not really accurate, especially on the first run, but close
          * enough and it will do for the purpose */
         if ((now.tv_sec - context.last_keepalive.tv_sec) > 1) {
-          status_reply(context.tcpfd, 0, NULL);
+          status_reply(&context, 0, NULL);
           context.last_keepalive = now;
         }
       }
@@ -213,18 +211,21 @@ void tcpserver_work_cleanup(void *context) {
 }
 
 /* Write "n" bytes to a descriptor. */
-ssize_t writen(int fd, const void *vptr, size_t n) {
+ssize_t writen(context_t * context, const void *vptr, size_t n){
   size_t nleft;
   ssize_t nwritten;
   const char *ptr;
   ptr = vptr;
   nleft = n;
   while (nleft > 0) {
-    if ((nwritten = write(fd, ptr, nleft)) <= 0) {
-      if (nwritten < 0 && errno == EINTR)
+    if ((nwritten = write(context->tcpfd, ptr, nleft)) <= 0) {
+      if (nwritten < 0 && errno == EINTR){
         nwritten = 0; /* and call write() again */
-      else
+      } else {
+        /* error on the TCP socket */
+        context->stop_thread = 1;
         return (-1); /* error */
+      }
     }
     nleft -= nwritten;
     ptr += nwritten;
@@ -232,7 +233,7 @@ ssize_t writen(int fd, const void *vptr, size_t n) {
   return (n);
 }
 
-int status_reply(int fd, int error, char *msg) {
+int status_reply(context_t * context, int error, char *msg) {
   char buffer[120];
   buffer[0] = 0;
 
@@ -249,7 +250,7 @@ int status_reply(int fd, int error, char *msg) {
   }
   strcat(buffer, "\n\r");
 
-  return writen(fd, buffer, strlen(buffer));
+  return writen(context, buffer, strlen(buffer));
 }
 
 void tcpserver_handle_input(context_t *context, char *buffer, ssize_t length) {
@@ -264,19 +265,19 @@ void tcpserver_handle_input(context_t *context, char *buffer, ssize_t length) {
       case CMD_INTERPRETER_NO_MORE_DATA:
         break;
       case CMD_INTERPRETER_LINE_LENGTH_EXCEEDED:
-        status_reply(context->tcpfd, 1, "line length exceeded");
+        status_reply(context, 1, "line length exceeded");
         break;
       case CMD_INTERPRETER_EMPTY_INPUT:
-        status_reply(context->tcpfd, 1, "no input");
+        status_reply(context, 1, "no input");
         break;
       case CMD_INTERPRETER_INVALID_COMMAND:
-        status_reply(context->tcpfd, 1, "invalid command");
+        status_reply(context, 1, "invalid command");
         break;
       case CMD_WRONG_ARGUMENT_COUNT:
-        status_reply(context->tcpfd, 1, "wrong number of arguments");
+        status_reply(context, 1, "wrong number of arguments");
         break;
       default:
-        status_reply(context->tcpfd, 1, NULL);
+        status_reply(context, 1, NULL);
         break;
       }
     }
