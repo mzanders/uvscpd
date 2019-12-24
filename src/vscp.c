@@ -227,7 +227,7 @@ int can_to_vscp(const struct can_frame *frame,
   if (frame->can_id & (CAN_RTR_FLAG | CAN_ERR_FLAG)) {
     return -1;
   }
-  if (frame->can_dlc >= 8) {
+  if (frame->can_dlc > 8) {
     return -1;
   }
   msg->head = (uint8_t)((frame->can_id & 0x1E000000U) >> 21);
