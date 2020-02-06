@@ -429,7 +429,7 @@ static int do_interface(void *obj, int argc, char *argv[]) {
 
     vscp_print_guid(guid, 64, &(context->guid));
 
-    sprintf(string, "0,1,%s,%s|Started %s\n\r", guid, context->can_bus,
+    sprintf(string, "0,1,%s,%s|Started %s\r\n", guid, context->can_bus,
             timebuffer);
     writen(context, string, strlen(string));
     status_reply(context, 0, NULL);

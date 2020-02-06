@@ -271,7 +271,7 @@ int print_vscp(const vscp_msg_t *msg, char *buffer, size_t buffer_size) {
     strncat(buffer, temp, buffer_size - 1);
   }
   buffer[strlen(buffer) - 1] = 0;
-  strncat(buffer, "\n\r", buffer_size);
+  strncat(buffer, "\r\n", buffer_size);
 
   return strlen(buffer);
 }
