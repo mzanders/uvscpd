@@ -64,7 +64,7 @@ int print_vscp_frame(context_t *context, const struct can_frame *frame) {
     sprintf(minibuf, ",0x%02X", frame->data[i]);
     strcat(buffer, minibuf);
   }
-  strcat(buffer, "\n\r");
+  strcat(buffer, "\r\n");
   return writen(context, buffer, strlen(buffer));
 }
 
@@ -73,8 +73,8 @@ void tcpserver_work(int connfd, const char * can_bus, time_t started){
   char buf[120];
   context_t context;
   char *welcome_message =
-      PACKAGE_STRING "\n\r"
-      PACKAGE_BUGREPORT "\n\r";
+      PACKAGE_STRING "\r\n"
+      PACKAGE_BUGREPORT "\r\n";
   struct sockaddr_can addr;
   struct ifreq ifr;
   struct can_frame frame;
@@ -248,7 +248,7 @@ int status_reply(context_t * context, int error, char *msg) {
     strcat(buffer, " - ");
     strncat(buffer, msg, sizeof(buffer) - strlen(buffer) - 3);
   }
-  strcat(buffer, "\n\r");
+  strcat(buffer, "\r\n");
 
   return writen(context, buffer, strlen(buffer));
 }
