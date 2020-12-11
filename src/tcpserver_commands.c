@@ -125,7 +125,7 @@ static int do_repeat(void *obj, int argc, char *argv[]) {
 
 static int do_user(void *obj, int argc, char *argv[]) {
   context_t *context = (context_t *)obj;
-  if (argc != 2) {
+  if (argc > 2) {
     return CMD_WRONG_ARGUMENT_COUNT;
   }
   if (cmd_user == NULL) {
@@ -133,19 +133,24 @@ static int do_user(void *obj, int argc, char *argv[]) {
     status_reply(context, 0, "no user configured");
     return 0;
   }
-  if (strcmp(argv[1], cmd_user) == 0) {
-    context->user_ok = 1;
-    status_reply(context, 0, NULL);
-  } else {
+  if (argc == 1) {
     context->user_ok = 0;
-    status_reply(context, 1, "invalid user");
+    status_reply(context, 1, "please supply username");
+  } else {
+    if (strcmp(argv[1], cmd_user) == 0) {
+      context->user_ok = 1;
+      status_reply(context, 0, NULL);
+    } else {
+      context->user_ok = 0;
+      status_reply(context, 1, "invalid user");
+    }
   }
   return 0;
 }
 
 static int do_password(void *obj, int argc, char *argv[]) {
   context_t *context = (context_t *)obj;
-  if (argc != 2) {
+  if (argc > 2) {
     return CMD_WRONG_ARGUMENT_COUNT;
   }
   if (cmd_password == NULL) {
@@ -153,12 +158,17 @@ static int do_password(void *obj, int argc, char *argv[]) {
     status_reply(context, 0, "no password configured");
     return 0;
   }
-  if (strcmp(argv[1], cmd_password) == 0) {
-    context->password_ok = 1;
-    status_reply(context, 0, NULL);
+  if (argc == 1) {
+    context->user_ok = 0;
+    status_reply(context, 1, "please supply password");
   } else {
-    context->password_ok = 0;
-    status_reply(context, 1, "invalid password");
+    if (strcmp(argv[1], cmd_password) == 0) {
+      context->password_ok = 1;
+      status_reply(context, 0, NULL);
+    } else {
+      context->password_ok = 0;
+      status_reply(context, 1, "invalid password");
+    }
   }
   return 0;
 }
