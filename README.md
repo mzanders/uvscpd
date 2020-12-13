@@ -99,9 +99,7 @@ Further more, uvscpd does not implement the Decision Matrix (*DM*), Variables
 (*VAR*) or Tables (*TABLE*) and all associated commands.
 
 ## How it works
-I'm not so strong in the commenting department but the code should be easy 
-to follow. To guide you through the few source files, here's a bit how
-uvscpd is setup:
+To guide you through the few source files, here's a bit how uvscpd is setup:
 
 - *uvscpd.c*: the starting point and home of main(). Responsible for all 
 argument parsing, showing command line info, daemonizing and handling
