@@ -1,0 +1,12 @@
+[Unit]
+Description=uvscpd socket CAN to TCP socket server
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+ExecStart=/usr/local/bin/uvscpd --stay 
+#-i 127.0.0.1
+Type=simple
+
+[Install]
+WantedBy=multi-user.target
